@@ -217,9 +217,9 @@ function newState(){
   ALLF.forEach(f=>{ if(f.def) v[f.k]=f.def; if(f.type==="many") v[f.k]=[]; });
   return v;
 }
-function loadDraft(){ try{const d=JSON.parse(localStorage.getItem(DRAFT)||"null"); if(d&&d.v){S=d.v;step=d.step||0;return}}catch(e){} S=newState(); }
-function saveDraft(){ if(editing) return; try{localStorage.setItem(DRAFT,JSON.stringify({v:S,step}))}catch(e){} }
-function clearDraft(){ try{localStorage.removeItem(DRAFT)}catch(e){} }
+function loadDraft(){ try{ Object.keys(localStorage).filter(k=>k.indexOf("gaia-reg-")===0||k==="tt-ficha-draft-v1").forEach(k=>localStorage.removeItem(k)); }catch(e){} try{const d=JSON.parse(sessionStorage.getItem(DRAFT)||"null"); if(d&&d.v){S=d.v;step=d.step||0;return}}catch(e){} S=newState(); }
+function saveDraft(){ if(editing) return; try{sessionStorage.setItem(DRAFT,JSON.stringify({v:S,step}))}catch(e){} }
+function clearDraft(){ try{sessionStorage.removeItem(DRAFT)}catch(e){} }
 
 const visible=f=>{ if(!f.when) return true; const v=S[f.when[0]], ok=f.when.slice(1); return Array.isArray(v)?v.some(x=>ok.includes(x)):ok.includes(v); };
 function areaM2(){ const a=parseFloat(S.area); if(!a) return 0; return S.area_u==="ha"?a*10000:a; }
@@ -300,10 +300,14 @@ function waText(rec){
 function validate(){
   let first=null;
   STEPS[step].f.forEach(f=>{
-    if(!f.req||!visible(f)) return;
-    const v=S[f.k]; let ok=f.type==="many"?(v||[]).length>0:f.type==="check"?!!v:String(v??"").trim()!=="";
-    if(f.type==="area_num") ok=parseFloat(S.area)>0;
-    const box=document.querySelector(`[data-f="${f.k}"]`); if(box) box.classList.toggle("bad",!ok);
+    if(!visible(f)) return;
+    const v=S[f.k], txt=String(v??"").trim(); let msg="Completa este dato para continuar.";
+    let ok=!f.req||(f.type==="many"?(v||[]).length>0:f.type==="check"?!!v:txt!=="");
+    if(f.type==="area_num"&&f.req) ok=parseFloat(S.area)>0;
+    if(ok&&txt&&f.type==="tel"&&txt.replace(/\D/g,"").length<6){ ok=false; msg="Escribe un número de teléfono válido (solo números)."; }
+    if(ok&&txt&&f.type==="email"&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(txt)){ ok=false; msg="Escribe un correo válido, por ejemplo nombre@gmail.com."; }
+    if(ok&&txt&&f.type==="url"&&!/^(https?:\/\/)?[^\s.]+\.[^\s]+$/i.test(txt)){ ok=false; msg="Pega el enlace completo de Google Maps."; }
+    const box=document.querySelector(`[data-f="${f.k}"]`); if(box){ box.classList.toggle("bad",!ok); const er=box.querySelector(".err"); if(er) er.textContent=msg; }
     if(!ok&&!first) first=box;
   });
   if(first){ first.scrollIntoView({behavior:"smooth",block:"center"}); const i=first.querySelector("input,textarea,button"); if(i) i.focus({preventScroll:true}); return false; }
