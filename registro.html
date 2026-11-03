@@ -129,99 +129,81 @@ body.embed .wrap{max-width:none;padding-inline:20px} body.embed header.top{posit
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const STEPS_FULL=[
- {t:"Originador",s:"Quién presenta el predio a la empresa",f:[
-  {k:"or_nombre",l:"Nombres y apellidos",type:"text",req:1,ac:"name"},
-  {k:"or_tel",l:"Teléfono / WhatsApp",type:"tel",req:1},
-  {k:"or_dni",l:"DNI",type:"digits"},
-  {k:"or_correo",l:"Correo",type:"email"},
-  {k:"or_vinculo",l:"Vínculo con la empresa",type:"one",req:1,o:["Personal interno","Red externa","Corredor","Referido","Otro"]},
-  {k:"medio",l:"¿Cómo llegó el predio?",type:"one",req:1,o:["Redes sociales","Revista","Aviso in situ","Referido","Corredor","Otro"]},
-  {k:"medio_otro",l:"Especifica el medio",type:"text",when:["medio","Otro"]}
+const NO_DUENO=["rel_dueno","Familiar del dueño","Corro el predio (corredor o intermediario)","Apoderado o representante","Otro"];
+const STEPS=[
+ {t:"Quién presenta el predio",s:"Tus datos: eres la persona que trae este predio a Grupo TuTierra.",f:[
+  {k:"or_nombre",l:"Tus nombres y apellidos",type:"text",req:1,ac:"name"},
+  {k:"or_tel",l:"Tu teléfono / WhatsApp",type:"tel",req:1},
+  {k:"or_correo",l:"Tu correo (opcional)",type:"email",h:"Te enviaremos aquí una copia de tu registro en PDF."},
+  {k:"or_vinculo",l:"¿Cuál es tu relación con TuTierra?",type:"one",req:1,o:["Asesor o personal de TuTierra","Captador o corredor","Referido","Persona externa","Otro"]},
+  {k:"or_vinculo_otro",l:"Cuéntanos cuál",type:"text",when:["or_vinculo","Otro"]},
+  {k:"medio",l:"¿Cómo llegó a ti este predio?",type:"one",req:1,o:["Es mío","Me lo ofreció el dueño","Redes sociales","Aviso en el terreno","Referido","Corredor","Otro"]},
+  {k:"medio_otro",l:"Especifica cómo",type:"text",when:["medio","Otro"]}
  ]},
- {t:"Propietario",s:"Datos de quien vende o de su representante",f:[
-  {k:"pr_nombre",l:"Nombres y apellidos o razón social",type:"text",req:1},
-  {k:"pr_tel",l:"Teléfono / WhatsApp",type:"tel",req:1},
-  {k:"pr_doc",l:"DNI / RUC",type:"digits"},
-  {k:"pr_civil",l:"Estado civil",type:"one",o:["Soltero(a)","Casado(a)","Conviviente","Divorciado(a)","Viudo(a)","Es empresa"],h:"Si es casado(a), también firma el cónyuge."},
-  {k:"pr_correo",l:"Correo",type:"email"},
-  {k:"pr_unico",l:"¿Es propietario único?",type:"one",req:1,o:["Sí","No","No sabe"]},
-  {k:"pr_coprop",l:"¿Quiénes son los copropietarios?",type:"area",when:["pr_unico","No"],h:"Nombres y, si se sabe, porcentaje de cada uno."},
-  {k:"pr_rep",l:"¿Actúa por medio de un representante?",type:"one",o:["No","Sí"]},
+ {t:"El dueño del predio",s:"Quién es el propietario y qué relación tienes con él.",f:[
+  {k:"rel_dueno",l:"¿Quién eres respecto al dueño?",type:"one",req:1,o:["Soy el dueño","Familiar del dueño","Corro el predio (corredor o intermediario)","Apoderado o representante","Otro"]},
+  {k:"rel_dueno_otro",l:"Cuéntanos tu relación con el dueño",type:"text",req:1,when:["rel_dueno","Otro"]},
+  {k:"pr_nombre",l:"Nombres y apellidos del dueño o razón social",type:"text",req:1,when:NO_DUENO},
+  {k:"pr_tel",l:"Teléfono del dueño (si lo tienes)",type:"tel",when:NO_DUENO,h:"Si no lo tienes, déjalo en blanco."},
+  {k:"pr_doc",l:"DNI / RUC del dueño (si lo tienes)",type:"digits",h:"Si no lo tienes, no importa."},
+  {k:"pr_civil",l:"Estado civil del dueño",type:"one",o:["Soltero(a)","Casado(a)","Conviviente","Divorciado(a)","Viudo(a)","Es empresa","No se tiene información"],h:"Nos ayuda a saber si hay sociedad de gananciales y cómo se reparten los porcentajes. Si es casado(a), también firma el cónyuge."},
+  {k:"pr_cuantos",l:"¿Cuántos propietarios hay?",type:"one",req:1,o:["1","2 a 5","Más de 5","No se sabe"]},
+  {k:"pr_coprop",l:"Detalle de los propietarios (opcional)",type:"area",when:["pr_cuantos","2 a 5","Más de 5","No se sabe"],h:"Nombres, parentesco y, si se sabe, el porcentaje de cada uno."},
+  {k:"pr_rep",l:"¿El dueño actúa por medio de un representante?",type:"one",o:["No","Sí"]},
   {k:"pr_rep_nombre",l:"Nombre del representante",type:"text",when:["pr_rep","Sí"]},
   {k:"pr_rep_poder",l:"¿Tiene poder vigente?",type:"one",o:["Sí","No","No sabe"],when:["pr_rep","Sí"]}
  ]},
- {t:"Predio",s:"Ubicación, tamaño y situación del terreno",f:[
+ {t:"El predio",s:"Ubicación, tamaño y situación del terreno.",f:[
   {k:"distrito",l:"Distrito",type:"text",req:1,h:"Ejemplo: Chinchero, Urubamba, Calca."},
   {k:"provincia",l:"Provincia / Departamento",type:"text",def:"Cusco"},
-  {k:"ubicacion",l:"Ubicación y referencias",type:"area",h:"Sector, comunidad, cómo llegar."},
-  {k:"maps",l:"Enlace de Google Maps o coordenadas",type:"url",h:"En Maps: mantén presionado el punto → Compartir → Copiar enlace."},
+  {k:"maps",l:"Enlace de Google Maps",type:"url",req:1,h:"En Google Maps: mantén presionado el terreno → Compartir → Copiar enlace, y pégalo aquí."},
+  {k:"ubicacion",l:"Ubicación y referencias (opcional)",type:"area",h:"Sector, comunidad, cómo llegar."},
   {k:"area",l:"Área aproximada",type:"area_num",req:1},
   {k:"tipo",l:"Tipo de predio",type:"one",o:["Urbano","Rústico o agrícola","Eriazo","No sabe"]},
   {k:"partida_tiene",l:"¿Tiene partida registral inscrita?",type:"one",req:1,o:["Sí","No","No sabe"]},
   {k:"partida",l:"N.º de partida registral",type:"digits",when:["partida_tiene","Sí"]},
-  {k:"titularidad",l:"Situación de titularidad",type:"one",o:["Título inscrito","Compraventa sin inscribir","Posesión","Sucesión","Comunidad o asociación","Otro"]},
-  {k:"acceso",l:"Acceso",type:"many",o:["Pista","Trocha carrozable","Camino de herradura","Sin acceso"]},
-  {k:"servicios",l:"Servicios cercanos",type:"many",o:["Agua","Luz","Desagüe","Ninguno"]},
+  {k:"titularidad",l:"Situación de titularidad",type:"one",req:1,o:["Título inscrito","Derechos y acciones","Compraventa sin inscribir","Posesión","Sucesión","Comunidad o asociación","Otro"],h:"Título inscrito = predio independizado a nombre del dueño."},
+  {k:"titularidad_otro",l:"¿Cuál es la situación?",type:"text",req:1,when:["titularidad","Otro"]},
+  {k:"acceso",l:"Acceso",type:"many",o:["Pista","Trocha carrozable","Camino de herradura","Sin acceso","Otro"]},
+  {k:"acceso_otro",l:"¿Qué otro acceso?",type:"text",req:1,when:["acceso","Otro"]},
+  {k:"servicios",l:"Servicios cercanos",type:"many",o:["Agua","Luz","Desagüe","Internet","Ninguno","Otro"]},
+  {k:"servicios_otro",l:"¿Qué otro servicio?",type:"text",req:1,when:["servicios","Otro"]},
   {k:"ocupantes",l:"¿Hay ocupantes o construcciones?",type:"one",o:["No","Sí"]},
   {k:"ocupantes_det",l:"Detalle de ocupantes o construcciones",type:"text",when:["ocupantes","Sí"]},
   {k:"cargas",l:"¿Cargas, litigios o deudas conocidos?",type:"one",o:["No","Sí","No sabe"],h:"Servidumbres, hipotecas, juicios, deudas de predial."},
   {k:"cargas_det",l:"¿Cuáles?",type:"text",when:["cargas","Sí"]}
  ]},
- {t:"Condiciones",s:"Qué espera el propietario",f:[
+ {t:"Condiciones",s:"Qué espera el dueño.",f:[
   {k:"busca",l:"¿Qué busca el propietario?",type:"one",req:1,o:["Vender el terreno completo","Que le vendamos lotes (corretaje)","Asociarse aportando el terreno","No lo tiene claro"]},
-  {k:"precio_m2",l:"Precio esperado por m²",type:"money"},
-  {k:"total",l:"Precio total esperado",type:"total"},
-  {k:"pago",l:"Forma de pago esperada",type:"one",o:["Contado","Fraccionado","Contra ventas","Otro"]},
+  {k:"precio_m2",l:"Precio esperado por m² (si lo sabe)",type:"precio",h:"Si todavía no hay un precio, déjalo en blanco."},
+  {k:"total",l:"Precio total estimado",type:"total"},
   {k:"urgencia",l:"Urgencia de venta",type:"one",o:["Alta","Media","Baja"]},
-  {k:"urg_motivo",l:"Motivo de la urgencia",type:"text",when:["urgencia","Alta","Media"]},
+  {k:"urg_motivo",l:"Motivo de la urgencia (opcional)",type:"text",when:["urgencia","Alta","Media"]},
   {k:"compromiso",l:"¿Acepta firmar un compromiso condicionado y permitir estudios de 30 a 60 días?",type:"one",o:["Sí","No","Por consultar"]}
  ]},
- {t:"Envío",s:"Documentos, autorizaciones y revisión final",f:[
-  {k:"docs",l:"Documentos que ya tienes",type:"many",o:["Copia de DNI","Partida registral","Título de propiedad","Fotografías","Plano","Enlace de ubicación"],h:"Envía los archivos por WhatsApp a Administración indicando el código de la ficha."},
-  {k:"aut_prop",l:"¿El propietario autorizó el uso de sus datos para evaluar el predio?",type:"one",req:1,o:["Sí, autorizó","Aún no"]},
-  {k:"obs",l:"Observaciones",type:"area"},
-  {k:"decl",l:"Declaro que la información es veraz y que no he asumido compromisos ni prometido precios en nombre de la empresa.",type:"check",req:1}
+ {t:"¡Último paso!",s:"Ya casi terminas: revisa y envía. Toma menos de un minuto.",f:[
+  {k:"docs",l:"¿Qué documentos tienes a la mano?",type:"many",o:["Copia de DNI","Partida registral","Título de propiedad","Fotografías","Plano","Ninguno por ahora"],h:"No tienes que adjuntarlos ahora: te los pediremos por WhatsApp con el código de tu registro."},
+  {k:"aut_prop",l:"¿El dueño sabe y está de acuerdo con que registres su predio?",type:"one",req:1,o:["Sí, autorizó","Aún no"],when:NO_DUENO},
+  {k:"obs",l:"¿Algo más que quieras contarnos? (opcional)",type:"area"},
+  {k:"decl",l:"Confirmo que la información es real y que no he prometido precios ni compromisos a nombre de Grupo TuTierra.",type:"check",req:1}
  ]}
 ];
 
-const STEPS_G=[
- {t:"Tus datos",s:"Para poder contactarte",f:[
-  {k:"or_nombre",l:"Nombres y apellidos",type:"text",req:1,ac:"name"},
-  {k:"or_tel",l:"Teléfono / WhatsApp",type:"tel",req:1},
-  {k:"or_correo",l:"Correo (opcional)",type:"email"},
-  {k:"es_prop",l:"¿Eres el propietario del predio?",type:"one",req:1,o:["Sí","No, lo recomiendo"]},
-  {k:"pr_nombre",l:"Nombre del propietario",type:"text",req:1,when:["es_prop","No, lo recomiendo"]},
-  {k:"pr_tel",l:"Teléfono del propietario (si lo tienes)",type:"tel",when:["es_prop","No, lo recomiendo"]}
- ]},
- {t:"El predio",s:"Solo lo básico: nosotros te llamamos para lo demás",f:[
-  {k:"distrito",l:"Distrito",type:"text",req:1,h:"Ejemplo: Chinchero, Urubamba, Calca."},
-  {k:"provincia",l:"Provincia / Departamento",type:"text",def:"Cusco"},
-  {k:"ubicacion",l:"Ubicación o referencia",type:"area",h:"Sector, comunidad, cómo llegar."},
-  {k:"maps",l:"Enlace de Google Maps (opcional)",type:"url",h:"En Maps: mantén presionado el punto → Compartir → Copiar enlace."},
-  {k:"area",l:"Área aproximada",type:"area_num",req:1},
-  {k:"precio_m2",l:"Precio esperado por m² (opcional)",type:"money"},
-  {k:"obs",l:"¿Algo más que debamos saber?",type:"area"},
-  {k:"decl",l:"Declaro que la información es veraz y autorizo a Grupo TuTierra a contactarme para evaluar el predio.",type:"check",req:1}
- ]}
-];
+
 const QP=new URLSearchParams(location.search), EMBED=QP.get("embed")==="1", POR=(QP.get("por")||"").slice(0,80);
-let MODO=QP.get("modo")==="invitado"?"invitado":QP.get("modo")==="completo"?"completo":"";
-let STEPS=MODO==="invitado"?STEPS_G:STEPS_FULL;
-function setModo(m){ MODO=m; STEPS=m==="invitado"?STEPS_G:STEPS_FULL; ALLF=STEPS.flatMap(s=>s.f); DRAFT="gaia-reg-"+m;
-  $("hTitle").textContent=m==="invitado"?"Registrar mi predio":"Ficha de captación de predio";
-  $("orgTag").textContent=m==="invitado"?"GAIA · Registro de invitado":"GAIA · ELEUTHIA · MAPRO-CAP-F01"; }
+let MODO=QP.get("modo")==="invitado"?"invitado":"completo";
+function setModo(m){ MODO=m; DRAFT="gaia-reg-"+m;
+  $("hTitle").textContent=m==="invitado"?"Registrar mi predio":"Registrar predio";
+  $("orgTag").textContent=m==="invitado"?"GAIA · Registro de invitado":"GAIA · ELEUTHIA · Registro de predios"; }
+const monS=()=>S.precio_moneda==="USD"?"US$":"S/";
 function datosEnvio(v){ const o=JSON.parse(JSON.stringify(v));
-  if(MODO==="invitado"){ o.invitado=true; o.or_vinculo="Invitado (web)"; o.medio="Registro web (invitado)";
-    if(o.es_prop==="Sí"){ o.pr_nombre=o.or_nombre; o.pr_tel=o.or_tel; o.aut_prop="Sí, autorizó"; } else o.aut_prop="Aún no"; }
+  if(o.rel_dueno==="Soy el dueño"){ o.pr_nombre=o.or_nombre; if(!o.pr_tel) o.pr_tel=o.or_tel; o.aut_prop="Sí, autorizó"; }
+  o.pr_unico=o.pr_cuantos==="1"?"Sí":o.pr_cuantos==="No se sabe"?"No sabe":o.pr_cuantos?"No":(o.pr_unico||"");
+  if(MODO==="invitado") o.invitado=true;
+  if(!(parseFloat(o.precio_m2)>0)) delete o.precio_m2;
+  delete o.total_txt; delete o.pago;
   if(POR) o.registrado_por=POR;
   return o; }
-function renderModos(){
-  $("progressBox").hidden=true; $("actions").hidden=true; $("editBar").hidden=true;
-  $("main").innerHTML=`<h2>¿Cómo quieres registrar el predio?</h2><p class="sub">Elige una opción para empezar.</p>
-    <div class="modos"><button type="button" class="modo" data-modo="completo"><b>Soy asesor o captador</b><span>Ficha completa de captación: originador, propietario, predio y condiciones.</span></button>
-    <button type="button" class="modo" data-modo="invitado"><b>Registrar como invitado</b><span>Solo tus datos de contacto y lo básico del terreno. Te llamamos para lo demás.</span></button></div>`;
-}
 let ALLF=STEPS.flatMap(s=>s.f);
 const fmtS=n=>"S/ "+Number(n).toLocaleString("es-PE",{maximumFractionDigits:2});
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -231,7 +213,7 @@ let DRAFT=MODO?"gaia-reg-"+MODO:"gaia-reg-completo";
 let S={}, step=0, sent=null, editing=null;
 
 function newState(){
-  const v={area_u:"m²"}; if(POR&&MODO==="completo"){ v.or_nombre=POR; v.or_vinculo="Personal interno"; }
+  const v={area_u:"m²",precio_moneda:"PEN"}; if(POR&&MODO==="completo"){ v.or_nombre=POR; v.or_vinculo="Asesor o personal de TuTierra"; } if(MODO==="invitado") v.or_vinculo="Persona externa";
   ALLF.forEach(f=>{ if(f.def) v[f.k]=f.def; if(f.type==="many") v[f.k]=[]; });
   return v;
 }
@@ -239,8 +221,9 @@ function loadDraft(){ try{const d=JSON.parse(localStorage.getItem(DRAFT)||"null"
 function saveDraft(){ if(editing) return; try{localStorage.setItem(DRAFT,JSON.stringify({v:S,step}))}catch(e){} }
 function clearDraft(){ try{localStorage.removeItem(DRAFT)}catch(e){} }
 
-const visible=f=>!f.when||f.when.slice(1).includes(S[f.when[0]]);
+const visible=f=>{ if(!f.when) return true; const v=S[f.when[0]], ok=f.when.slice(1); return Array.isArray(v)?v.some(x=>ok.includes(x)):ok.includes(v); };
 function areaM2(){ const a=parseFloat(S.area); if(!a) return 0; return S.area_u==="ha"?a*10000:a; }
+const fmtM=n=>monS()+" "+Number(n).toLocaleString("es-PE",{maximumFractionDigits:2});
 function totalCalc(){ const p=parseFloat(S.precio_m2), a=areaM2(); return p&&a?p*a:0; }
 function categoria(m2){ if(!m2) return ""; if(m2>=10000) return "Grande (1 ha o más)"; if(m2>=1000) return "Mediano (0.1 a 0.9 ha)"; if(m2>=90) return "Pequeño (90 a 999 m²)"; return "Menor a 90 m²"; }
 
@@ -265,11 +248,10 @@ function fieldHTML(f){
     case "area_num":
       inner=`<div class="inrow"><input type="number" id="${id}" data-k="area" inputmode="decimal" step="any" min="0" value="${esc(v)}"><div class="chips" role="group" aria-label="Unidad">${["m²","ha"].map(u=>`<button type="button" class="chip" data-k="area_u" data-v="${u}" data-t="one" aria-pressed="${S.area_u===u}">${u}</button>`).join("")}</div></div><div class="hint" id="catHint">${esc(categoria(areaM2()))}</div>`; break;
     case "money": inner=`<div class="inrow"><span class="unit">S/</span><input type="number" id="${id}" data-k="${f.k}" inputmode="decimal" step="any" min="0" value="${esc(v)}"></div>`; break;
+    case "precio": inner=`<div class="inrow"><div class="chips" role="group" aria-label="Moneda" style="flex-wrap:nowrap">${[["PEN","S/"],["USD","US$"]].map(([k,l])=>`<button type="button" class="chip" data-k="precio_moneda" data-v="${k}" data-t="one" aria-pressed="${(S.precio_moneda||"PEN")===k}">${l}</button>`).join("")}</div><input type="number" id="${id}" data-k="${f.k}" inputmode="decimal" step="any" min="0" value="${esc(v)}" placeholder="Opcional"></div>`; break;
     case "total": {
       const t=totalCalc();
-      inner=`<div class="calc" id="totalBox">${t?`<b>${fmtS(t)}</b><div class="hint">Calculado: ${areaM2().toLocaleString("es-PE")} m² × ${fmtS(S.precio_m2)}</div>`:'<span class="hint">Se calcula con el área y el precio por m².</span>'}</div>
-      <label for="f_total_txt" class="hint">¿Pidió otro monto o precio por lote? Escríbelo aquí:</label>
-      <input type="text" id="f_total_txt" data-k="total_txt" value="${esc(S.total_txt)}" placeholder="Ej.: S/ 55,000 por lote">`;
+      inner=`<div class="calc" id="totalBox">${t?`<b>${fmtM(t)}</b><div class="hint">Calculado: ${areaM2().toLocaleString("es-PE")} m² × ${fmtM(S.precio_m2)}</div>`:'<span class="hint">Se calcula solo con el área y el precio por m².</span>'}</div>`;
       return `<div class="f" data-f="${f.k}"><span class="lbl">${esc(f.l)}</span>${inner}</div>`;
     }
     case "check":
@@ -283,10 +265,10 @@ function renderForm(){
   $("barFill").style.width=((step+1)/STEPS.length*100)+"%";
   $("stepsLbl").innerHTML=`<span>Paso <b>${step+1}</b> de ${STEPS.length} · <b>${st.t}</b></span><span>${step<STEPS.length-1?"Sigue: "+STEPS[step+1].t:"Último paso"}</span>`;
   let h=`<h2>${esc(st.t)}</h2><p class="sub">${esc(st.s)}</p>`+st.f.map(fieldHTML).join("");
-  if(step===STEPS.length-1) h+=`<h2>Revisa antes de enviar</h2><div class="sum">${summaryHTML(S)}</div>`;
+  if(step===STEPS.length-1) h+=`<h2>Revisa tu registro</h2><p class="sub">Si algo no está bien, usa “Atrás” para corregirlo.</p><div class="sum">${summaryHTML(S)}</div>`;
   $("main").innerHTML=h;
   $("btnBack").hidden=step===0;
-  $("btnNext").textContent=step===STEPS.length-1?(editing?"Guardar cambios":"Enviar ficha"):"Siguiente";
+  $("btnNext").textContent=step===STEPS.length-1?(editing?"Guardar cambios":"Enviar registro ✓"):"Siguiente";
   $("editBar").hidden=!editing;
   if(editing) $("editTxt").textContent="Corrigiendo "+editing.codigo;
 }
@@ -295,12 +277,14 @@ function display(f,v,obj){
   if(f.type==="check") return v?"Sí":"";
   if(f.type==="many") return (v||[]).join(", ");
   if(f.type==="area_num") return v?`${Number(v).toLocaleString("es-PE")} ${obj.area_u||"m²"}`:"";
-  if(f.type==="money") return v?fmtS(v):"";
-  if(f.type==="total"){ const a=(obj.area_u==="ha"?parseFloat(obj.area)*10000:parseFloat(obj.area))||0, p=parseFloat(obj.precio_m2)||0; return [a&&p?fmtS(a*p):"",obj.total_txt||""].filter(Boolean).join(" · "); }
+  const cm=obj.precio_moneda==="USD"?"US$ ":"S/ ", fm2=n=>cm+Number(n).toLocaleString("es-PE",{maximumFractionDigits:2});
+  if(f.type==="money"||f.type==="precio") return v?fm2(v):"";
+  if(f.type==="total"){ const a=(obj.area_u==="ha"?parseFloat(obj.area)*10000:parseFloat(obj.area))||0, p=parseFloat(obj.precio_m2)||0; return a&&p?fm2(a*p):""; }
   return v||"";
 }
 function rows(obj){
-  return STEPS.map(s=>({t:s.t,items:s.f.filter(f=>f.k!=="decl"&&(!f.when||f.when.slice(1).includes(obj[f.when[0]]))).map(f=>[f.l,display(f,obj[f.k],obj)]).filter(r=>r[1])}));
+  const vis=f=>{ if(!f.when) return true; const v=obj[f.when[0]], ok=f.when.slice(1); return Array.isArray(v)?v.some(x=>ok.includes(x)):ok.includes(v); };
+  return STEPS.map(s=>({t:s.t==="¡Último paso!"?"Documentos y autorización":s.t,items:s.f.filter(f=>f.k!=="decl"&&vis(f)).map(f=>[f.l,display(f,obj[f.k],obj)]).filter(r=>r[1])}));
 }
 function summaryHTML(obj){
   return rows(obj).map(g=>g.items.length?`<h3>${esc(g.t)}</h3><dl>${g.items.map(([l,v])=>`<dt>${esc(l)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`:"").join("");
@@ -353,7 +337,7 @@ async function submit(){
   const btn=$("btnNext"), wasEdit=!!editing;
   btn.disabled=true; btn.textContent=wasEdit?"Guardando…":"Enviando…";
   try{
-    const data=JSON.stringify(wasEdit?S:datosEnvio(S));
+    const data=JSON.stringify(datosEnvio(S));
     const r=wasEdit?await run("actualizarFicha",editing.codigo,editing.clave,data):await run("guardarFicha",data);
     sent={...r,v:JSON.parse(data),edited:wasEdit};
     editing=null; clearDraft(); renderDone(); scrollTo(0,0);
@@ -411,7 +395,7 @@ document.addEventListener("input",e=>{
   const k=e.target.dataset&&e.target.dataset.k; if(!k) return;
   S[k]=e.target.type==="checkbox"?e.target.checked:e.target.value;
   const box=e.target.closest(".f"); if(box) box.classList.remove("bad");
-  if(k==="area"||k==="precio_m2"){ const tb=$("totalBox"); if(tb){ const t=totalCalc(); tb.innerHTML=t?`<b>${fmtS(t)}</b><div class="hint">Calculado: ${areaM2().toLocaleString("es-PE")} m² × ${fmtS(S.precio_m2)}</div>`:'<span class="hint">Se calcula con el área y el precio por m².</span>'; } const ch=$("catHint"); if(ch) ch.textContent=categoria(areaM2()); }
+  if(k==="area"||k==="precio_m2"){ const tb=$("totalBox"); if(tb){ const t=totalCalc(); tb.innerHTML=t?`<b>${fmtM(t)}</b><div class="hint">Calculado: ${areaM2().toLocaleString("es-PE")} m² × ${fmtM(S.precio_m2)}</div>`:'<span class="hint">Se calcula con el área y el precio por m².</span>'; } const ch=$("catHint"); if(ch) ch.textContent=categoria(areaM2()); }
   saveDraft();
 });
 document.addEventListener("change",e=>{ if(e.target.type==="checkbox"){ S[e.target.dataset.k]=e.target.checked; e.target.closest(".f").classList.remove("bad"); saveDraft(); }});
@@ -419,11 +403,10 @@ document.addEventListener("click",e=>{
   const c=e.target.closest(".chip");
   if(c&&c.dataset.k){
     const k=c.dataset.k, v=c.dataset.v;
-    if(c.dataset.t==="one"){ S[k]=S[k]===v&&k!=="area_u"?"":v; }
+    if(c.dataset.t==="one"){ S[k]=S[k]===v&&k!=="area_u"&&k!=="precio_moneda"?"":v; }
     else { const a=new Set(S[k]||[]); a.has(v)?a.delete(v):a.add(v); S[k]=[...a]; }
     saveDraft(); const y=scrollY; renderForm(); scrollTo(0,y); return;
   }
-  const mb=e.target.closest("[data-modo]"); if(mb){ setModo(mb.dataset.modo); loadDraft(); $("actions").hidden=false; $("progressBox").hidden=false; renderForm(); scrollTo(0,0); return; }
   if(e.target.closest("[data-pdf]")){ downloadPdf(); return; }
   if(e.target.closest("[data-copylink]")){ const i=$("editUrl"); navigator.clipboard.writeText(i.value).then(()=>toast("Enlace copiado."),()=>{ i.select(); toast("Mantén presionado y elige Copiar."); }); }
 });
@@ -440,7 +423,6 @@ $("btnCancelEdit").addEventListener("click",()=>{ editing=null; loadDraft(); ren
 
 const PARAMS=(()=>{ const u=new URLSearchParams(location.search); return {ficha:u.get("ficha")||"",clave:u.get("clave")||""}; })();
 if(PARAMS.ficha&&PARAMS.clave){ S=newState(); startFromLink(PARAMS.ficha,PARAMS.clave); }
-else if(!MODO) renderModos();
 else { setModo(MODO); loadDraft(); renderForm(); }
 if(EMBED) document.body.classList.add("embed");
 try{ const t=localStorage.getItem("gaia_tema"); if(t==="dark"||t==="light") document.documentElement.setAttribute("data-theme",t); }catch(e){}

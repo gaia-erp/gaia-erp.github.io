@@ -1045,7 +1045,7 @@ function renderLista(){
 function sugerencias(v){
   const s={};
   const tit=v.titularidad||"";
-  if(tit==="Título inscrito") s.legal=v.pr_unico==="Sí"?5:3; else if(tit==="Sucesión") s.legal=3; else if(tit==="Compraventa sin inscribir") s.legal=2; else if(tit==="Posesión") s.legal=1;
+  if(tit==="Título inscrito") s.legal=v.pr_unico==="Sí"?5:3; else if(tit==="Sucesión") s.legal=3; else if(tit==="Derechos y acciones") s.legal=2; else if(tit==="Compraventa sin inscribir") s.legal=2; else if(tit==="Posesión") s.legal=1;
   const ac=v.acceso||[];
   if(ac.includes("Pista")) s.acceso=5; else if(ac.includes("Trocha carrozable")) s.acceso=3; else if(ac.includes("Camino de herradura")) s.acceso=1;
   const sv=v.servicios||[];
@@ -1056,7 +1056,7 @@ function sugerencias(v){
 function nuevaEval(d){
   const v=d.v||{}, crit={}, sug=sugerencias(v);
   EVAL_CRITERIOS.forEach(c=>crit[c.k]={nota:sug[c.k]||0,sit:"",sugerida:!!sug[c.k]});
-  return {area_total:d.area_m2||"",afectaciones:"",afectaciones_det:"",precio_pedido_m2:v.precio_m2||"",precio_mercado_m2:"",moneda:"S/",
+  return {area_total:d.area_m2||"",afectaciones:"",afectaciones_det:"",precio_pedido_m2:v.precio_m2||"",precio_mercado_m2:"",moneda:v.precio_moneda==="USD"?"US$":"S/",
     partida:v.partida||"",solo_corretaje:/corretaje/i.test(v.busca||""),ko:{},crit,hallazgos:[{asiento:"",acto:"",detalle:"",obs:""}],
     recomendaciones:[""],docs:[{doc:"",fuente:"",prioridad:"Indispensable"}],opinion:"",destino_final:"",motivo_cambio:""};
 }
@@ -1085,7 +1085,7 @@ function renderEval(){
   $("btnLista").hidden=false; $("hMod").textContent="GAIA · MINERVA"; setMod("minerva"); $("hTitle").textContent=`Evaluación ${d.codigo}`;
   const ratio=r.ratio?Math.round(r.ratio*100)+" % del mercado":"";
   const fichaKV=[["Propietario",v.pr_nombre],["Ubicación",[v.ubicacion,v.distrito,v.provincia].filter(Boolean).join(", ")],["Área declarada",v.area?num(v.area)+" "+(v.area_u||"m²"):""],
-    ["Titularidad",v.titularidad],["¿Propietario único?",v.pr_unico+(v.pr_coprop?" · "+v.pr_coprop:"")],["Qué busca",v.busca],["Precio esperado",v.precio_m2?"S/ "+num(v.precio_m2)+" por m²":""],
+    ["Titularidad",v.titularidad],["¿Propietario único?",v.pr_unico+(v.pr_coprop?" · "+v.pr_coprop:"")],["Qué busca",v.busca],["Precio esperado",v.precio_m2?(v.precio_moneda==="USD"?"US$ ":"S/ ")+num(v.precio_m2)+" por m²":""],
     ["Acceso",(v.acceso||[]).join(", ")],["Servicios",(v.servicios||[]).join(", ")],["Cargas",v.cargas+(v.cargas_det?" · "+v.cargas_det:"")],["Originador",v.or_nombre]].filter(x=>x[1]&&x[1]!=="undefined");
   $("main").innerHTML=`
   <div class="resbar" id="resbar" aria-live="polite">${resbarHTML(r)}</div>
