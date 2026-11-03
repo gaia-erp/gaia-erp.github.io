@@ -351,6 +351,26 @@ label{font-weight:700;font-size:13px;display:block;margin-bottom:5px;color:var(-
 .mcard[aria-pressed="true"]{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand),0 0 22px color-mix(in srgb,var(--brand) 18%,transparent)}
 .mcard[aria-pressed="true"] .t::after{content:" ✓";color:var(--brand)}
 .tablebox td.r{white-space:nowrap}
+/* ---- Flujo completo: viabilidad, simulador y cobranzas ---- */
+.sheet.big{width:min(620px,calc(100% - 32px));max-height:calc(100vh - 96px);overflow:auto;top:calc(76px + env(safe-area-inset-top,0px))}
+@media (max-width:959px){.sheet.big{width:100%;max-height:90vh;top:auto}}
+.alerts{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}
+.alerts li{padding:8px 12px;border-radius:10px;font-size:14px;border-left:4px solid}
+.alerts .al-rojo{background:var(--des);color:var(--des-ink);border-color:var(--des-ink)}
+.alerts .al-ambar{background:var(--att);color:var(--att-ink);border-color:var(--att-ink)}
+.panel.viab{border-left:4px solid var(--line2)}
+.panel.viab-viable{border-left-color:var(--fav-ink)} .panel.viab-observar{border-left-color:var(--att-ink)} .panel.viab-no{border-left-color:var(--des-ink)}
+.simbox{border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--card2)}
+.simbox .kpi b{font-size:22px}
+.linkbtn{background:none;border:0;padding:0;color:var(--brand);font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px;font:inherit}
+.estbtns .estb{font-size:13px}
+@media (max-width:520px){.estbtns[style]{grid-template-columns:1fr 1fr!important}}
+.kvl{display:grid;grid-template-columns:minmax(0,40%) minmax(0,1fr);gap:8px 12px;margin:0}
+.kvl dt{color:var(--muted)} .kvl dd{margin:0;overflow-wrap:anywhere}
+.ccards{display:none;gap:10px;margin-top:10px}
+.ccard{display:grid;gap:6px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+.ccard .btn{justify-self:start}
+@media (max-width:700px){.ccards{display:grid}.cdesk{display:none}}
 
 .gatemode .wrap{padding:0!important;max-width:none!important}
 .sheet .item svg{width:30px;height:30px;border-radius:8px;flex:none}
@@ -566,12 +586,23 @@ var GAIA_ESTADOS = ['disponible', 'reservado', 'vendido', 'bloqueado'];
 var GAIA_ESTADO_TXT = { disponible: 'Disponible', reservado: 'Reservado', vendido: 'Vendido', bloqueado: 'Bloqueado' };
 var GAIA_DEF_REGLA = { modo: 'pct', pct: 75, fijo: 0, monedaFijo: 'PEN' };
 (function () { for (var k in GAIA_MODELOS) if (!GAIA_MODELOS[k].regla) GAIA_MODELOS[k].regla = { modo: 'pct', pct: 75, fijo: 0, monedaFijo: 'PEN' }; })();
+/** Financiamiento directo por defecto (HADES lo define por modelo y DEMETER lo ajusta por proyecto). */
+var GAIA_FIN_DEF = { inicialPct: 30, separacion: 1000, maxCuotas: 12, tea: 0 };
+var GAIA_FIN_MODELO = { corretaje: { inicialPct: 30, separacion: 1000, maxCuotas: 12, tea: 0 }, cesion: { inicialPct: 30, separacion: 1000, maxCuotas: 12, tea: 0 },
+  sobreprecio: { inicialPct: 20, separacion: 1000, maxCuotas: 24, tea: 0 }, propio: { inicialPct: 20, separacion: 1000, maxCuotas: 36, tea: 0 },
+  reventa: { inicialPct: 30, separacion: 1000, maxCuotas: 12, tea: 0 }, libre: { inicialPct: 30, separacion: 1000, maxCuotas: 12, tea: 0 } };
+/** Viabilidad: ingreso bruto mínimo (% de las ventas) por modelo y umbrales generales. */
+var GAIA_INGMIN = { corretaje: 3, cesion: 3, sobreprecio: 12, propio: 20, reventa: 10, libre: 3 };
+var GAIA_VIAB_DEF = { utilidadMin: 20000, empMin: 30 };
+(function () { for (var k in GAIA_MODELOS) { var M = GAIA_MODELOS[k];
+  if (!M.financ) M.financ = JSON.parse(JSON.stringify(GAIA_FIN_MODELO[k] || GAIA_FIN_DEF));
+  if (M.ingresoMin === undefined) M.ingresoMin = GAIA_INGMIN[k] !== undefined ? GAIA_INGMIN[k] : 3; } })();
 var GAIA_PRICING_KEYS = ['pctLista', 'margenM2', 'pctBase', 'sobreM2', 'fijo', 'restaBase'];
 /** HADES: criterios Redin maestros (los que tú editas). Si no hay nada guardado, parte del modelo Redin. */
 function gHadesDefault() {
   var m = JSON.parse(JSON.stringify(GAIA_MODELOS)), d = {}, k;
   for (k in GAIA_DESTINO_MODELO) d[k] = GAIA_DESTINO_MODELO[k];
-  return { modelos: m, destinos: d, orden: Object.keys(m), cambios: {} };
+  return { modelos: m, destinos: d, orden: Object.keys(m), cambios: {}, viab: JSON.parse(JSON.stringify(GAIA_VIAB_DEF)) };
 }
 function gModelos(S) { return (S && S.hades && S.hades.modelos) || GAIA_MODELOS; }
 /** Porcentaje efectivo para terceros: base + bonos activos, con tope. */
@@ -595,6 +626,7 @@ function gAplicarModelo(p, M) {
   GAIA_PRICING_KEYS.forEach(function (k) { p.pricing[k] = gN((M.pricing || {})[k]); });
   p.reparto = JSON.parse(JSON.stringify(M.reparto || {}));
   p.regla = JSON.parse(JSON.stringify(M.regla || GAIA_DEF_REGLA));
+  if (M.financ) p.financ = JSON.parse(JSON.stringify(M.financ));
   return p;
 }
 /** ¿El proyecto tiene los mismos valores que su modelo de HADES? */
@@ -623,7 +655,8 @@ function gRegla(p) { var r = {}, k; for (k in GAIA_DEF_REGLA) r[k] = GAIA_DEF_RE
 /** Cálculo de un lote: ingreso, bolsa comercial y reparto Redin. Montos en la moneda del proyecto (pm) y en soles (…PEN). */
 function gLot(p, l, cfg) {
   var pr = (p && p.pricing) || {}, rp = (p && p.reparto) || {}, tc = (cfg && cfg.tc) || 1;
-  var base = gN(pr.bases && pr.bases[l.id]), m2 = gN(l.m2), lista = gN(l.lista);
+  // Si el lote ya se vendió y tiene precio de venta real, se calcula con ese precio (no con el de lista).
+  var base = gN(pr.bases && pr.bases[l.id]), m2 = gN(l.m2), lista = (l.estado === 'vendido' && gN(l.venta) > 0) ? gN(l.venta) : gN(l.lista);
   var ingreso = gN(pr.pctLista) / 100 * lista + gN(pr.margenM2) * m2 + gN(pr.pctBase) / 100 * base + gN(pr.sobreM2) * m2 + gN(pr.fijo) +
     (gN(pr.restaBase) ? lista - base : 0);
   if (ingreso < 0) ingreso = 0;
@@ -742,6 +775,178 @@ function gWallet(S, key) {
     vend: rows.filter(function (r) { return r.l.estado === 'vendido'; }).length, porMes: gana / per.meses, per: per };
 }
 
+/** APOLLO · Reporte de ventas y comisiones. f = { pid: '' (todos) | id, alcance: 'vendidos' | 'cartera' (vendidos + reservados) }.
+ *  Montos de cada proyecto en su moneda; totales generales en soles (tipo de cambio de la configuración). */
+function gNombreAsesor(S, k) {
+  var c = (S.config && S.config.closer) || {};
+  if (!k) return 'Sin asesor';
+  if (k === c.key) return c.name || k;
+  var u = (S.users || []).filter(function (x) { return x.usuario === k; })[0];
+  return u ? u.nombre : k;
+}
+function gReporte(S, f) {
+  f = f || {}; var cfg = S.config || {}, tc = gN(cfg.tc) || 1;
+  var est = f.alcance === 'cartera' ? { vendido: 1, reservado: 1 } : { vendido: 1 };
+  var ps = gProjList(S).filter(function (p) { return !f.pid || p.id === f.pid; });
+  var Z = function () { return { lotes: 0, area: 0, ventas: 0, ingreso: 0, asesor: 0, closer: 0, bolsa: 0, captacion: 0, terceros: 0, empresa: 0, pagado: 0, porPagar: 0 }; };
+  var add = function (t, r, k) { t.lotes++; t.area += gN(r.l.m2); ['ventas', 'ingreso', 'asesor', 'closer', 'bolsa', 'captacion', 'terceros', 'empresa', 'pagado', 'porPagar'].forEach(function (n) { t[n] += r[n + (k || '')]; }); };
+  var rows = [], byP = [], A = {}, tot = Z(), inv = [], sinPrecio = 0;
+  ps.forEach(function (p) {
+    var pm = p.moneda || 'PEN', tp = Z(), iv = { p: p, disponible: 0, reservado: 0, vendido: 0, bloqueado: 0, total: 0, valDisp: 0, valRes: 0, valVend: 0 };
+    gLotsOf(S, p.id).forEach(function (l) {
+      var e = l.estado || 'disponible', x0 = gLot(p, l, cfg);
+      iv[e] = (iv[e] || 0) + 1; iv.total++;
+      if (e === 'disponible') iv.valDisp += x0.lista; else if (e === 'reservado') iv.valRes += x0.lista; else if (e === 'vendido') iv.valVend += x0.lista;
+      if (!est[e]) return;
+      var sp = gSplit(p, l, cfg), x = sp.x, toPM = function (v) { return gConv(v, 'PEN', pm, tc); };
+      var r = { p: p, l: l, x: x, pm: pm, estado: e, asesorNombre: gNombreAsesor(S, l.asesor), pagada: !!l.pagada,
+        ventas: x.lista, ingreso: x.ingreso, asesor: toPM(sp.asesor), closer: toPM(sp.closer), bolsa: x.bolsaPM,
+        captacion: x.captacion, terceros: x.terceros, empresa: x.empresa,
+        ventasPEN: x.listaPEN, ingresoPEN: x.ingresoPEN, asesorPEN: sp.asesor, closerPEN: sp.closer, bolsaPEN: x.bolsaPEN,
+        captacionPEN: x.captacionPEN, tercerosPEN: x.tercerosPEN, empresaPEN: x.empresaPEN };
+      r.pagado = r.pagada ? r.bolsa : 0; r.porPagar = r.pagada ? 0 : r.bolsa;
+      r.pagadoPEN = r.pagada ? r.bolsaPEN : 0; r.porPagarPEN = r.pagada ? 0 : r.bolsaPEN;
+      if (!x.lista) sinPrecio++;
+      rows.push(r); add(tp, r); add(tot, r, 'PEN');
+      var k = l.asesor || '';
+      var a = A[k] = A[k] || { key: k, nombre: r.asesorNombre, closer: !!(cfg.closer && k === cfg.closer.key), lotes: 0, vendidos: 0, comision: 0, pagado: 0, porPagar: 0, closerMonto: 0 };
+      a.lotes++; if (e === 'vendido') a.vendidos++;
+      a.comision += sp.asesor + (a.closer ? sp.closer : 0);
+      var debe = sp.asesor + (a.closer ? sp.closer : 0);
+      if (r.pagada) a.pagado += debe; else a.porPagar += debe;
+    });
+    // Comisión del closer en lotes de asesores: se cuenta aparte para el closer.
+    inv.push(iv);
+    if (tp.lotes) byP.push({ p: p, pm: pm, t: tp });
+  });
+  var ck = cfg.closer && cfg.closer.key;
+  if (ck) rows.forEach(function (r) {
+    if (r.l.asesor === ck || !r.closerPEN) return;
+    var a = A[ck] = A[ck] || { key: ck, nombre: gNombreAsesor(S, ck), closer: true, lotes: 0, vendidos: 0, comision: 0, pagado: 0, porPagar: 0, closerMonto: 0 };
+    a.comision += r.closerPEN; a.closerMonto += r.closerPEN; if (r.pagada) a.pagado += r.closerPEN; else a.porPagar += r.closerPEN;
+  });
+  var asesores = Object.keys(A).map(function (k) { return A[k]; }).sort(function (a, b) { return b.comision - a.comision; });
+  return { f: f, rows: rows, byP: byP, asesores: asesores, tot: tot, inv: inv, tc: tc, sinPrecio: sinPrecio,
+    alcanceTxt: f.alcance === 'cartera' ? 'Lotes vendidos y reservados' : 'Lotes vendidos' };
+}
+
+/* ===== Viabilidad, financiamiento y cobranzas (POSEIDON) ===== */
+function gMerge(base, o) { var r = {}, k; for (k in base) r[k] = base[k]; o = o || {}; for (k in o) if (o[k] !== undefined && o[k] !== '') r[k] = o[k]; return r; }
+/** Condiciones de financiamiento del proyecto: las suyas o, si no tiene, las de su modelo en HADES. */
+function gFinanc(p, S) {
+  var M = gModelos(S)[p && p.modelo] || {};
+  return gMerge(gMerge(GAIA_FIN_DEF, M.financ), p && p.financ);
+}
+/** Criterios de viabilidad: generales (HADES) + ingreso mínimo del modelo. */
+function gViabCfg(S, p) {
+  var V = gMerge(GAIA_VIAB_DEF, (S && S.hades && S.hades.viab) || {}), M = gModelos(S)[p && p.modelo] || {};
+  V.ingresoMin = M.ingresoMin !== undefined && M.ingresoMin !== '' ? gN(M.ingresoMin) : (GAIA_INGMIN[p && p.modelo] !== undefined ? GAIA_INGMIN[p.modelo] : 3);
+  V.modeloN = M.n || (p && p.modelo) || '';
+  return V;
+}
+/** Semáforo de viabilidad de un proyecto: 'viable' | 'observar' | 'no' | 'vacio'. */
+function gViab(S, pid) {
+  var p = S.projects[pid], cfg = S.config || {}, tc = gN(cfg.tc) || 1, pm = (p && p.moneda) || 'PEN';
+  var V = gViabCfg(S, p), t = gCabida(S, pid), A = [];
+  var al = function (n, txt) { A.push({ nivel: n, txt: txt }); };
+  var cur = pm === 'USD' ? 'US$ ' : 'S/ ', f0 = function (v) { return Math.round(v).toLocaleString('en-US'); };
+  var util = t.utilidad, utilPEN = gConv(util, pm, 'PEN', tc);
+  var ingPct = t.ventas ? t.ingreso / t.ventas * 100 : 0, margen = t.ventas ? util / t.ventas * 100 : 0, emp = t.ingreso ? t.empresa / t.ingreso * 100 : 0;
+  var ls = gLotsOf(S, pid).filter(function (l) { return l.estado !== 'bloqueado'; });
+  var sinPrecio = ls.filter(function (l) { return !gN(l.lista); }).length;
+  var pr = (p && p.pricing) || {}, usaBase = gN(pr.restaBase) || gN(pr.pctBase);
+  var sinBase = usaBase ? ls.filter(function (l) { var b = pr.bases && pr.bases[l.id]; return b === undefined || b === '' || !gN(b); }).length : 0;
+  if (!ls.length || !t.ventas) {
+    al('ambar', 'Aún no hay lotes con precio: carga la cabida en DEMETER para evaluar el proyecto.');
+    return { estado: 'vacio', alertas: A, t: t, V: V, ingPct: 0, margen: 0, util: 0, utilPEN: 0, emp: 0, esc: [], pm: pm };
+  }
+  if (t.ingreso <= 0) al('rojo', 'El proyecto no genera ingreso bruto para la empresa.');
+  else if (ingPct < V.ingresoMin) al('rojo', 'Ingreso bruto bajo: es el ' + ingPct.toFixed(1) + ' % de las ventas y el mínimo para "' + V.modeloN + '" es ' + V.ingresoMin + ' %.');
+  else if (ingPct < V.ingresoMin * 1.25) al('ambar', 'Ingreso bruto ajustado: ' + ingPct.toFixed(1) + ' % de las ventas, cerca del mínimo de ' + V.ingresoMin + ' %.');
+  if (t.empresa < 0) al('rojo', 'El reparto supera el ingreso: la empresa queda en negativo.');
+  if (util <= 0 && t.ingreso > 0 && t.empresa >= 0) al('rojo', 'Con los costos del proyecto la empresa no gana (utilidad ' + cur + f0(util) + ').');
+  else if (util > 0 && utilPEN < gN(V.utilidadMin)) al('ambar', 'Utilidad estimada S/ ' + f0(utilPEN) + ', por debajo de la mínima de S/ ' + f0(gN(V.utilidadMin)) + '.');
+  if (t.ingreso > 0 && t.empresa >= 0 && emp < gN(V.empMin)) al('ambar', 'A la empresa le queda solo el ' + emp.toFixed(1) + ' % del ingreso bruto (mínimo ' + gN(V.empMin) + ' %): el reparto se lleva casi todo.');
+  if (t.closer < -0.01) al('rojo', 'El pago fijo al asesor supera la bolsa de algunos lotes.');
+  if (sinPrecio) al('ambar', sinPrecio + ' lote(s) sin precio: no suman a las ventas.');
+  if (sinBase) al('ambar', sinBase + ' lote(s) sin base o costo: el ingreso podría estar inflado.');
+  // Escenarios para gerencia
+  var esc = [{ n: 'Escenario base', util: util }];
+  var S2 = { projects: S.projects, users: S.users, config: S.config, hades: S.hades, lots: {} };
+  Object.keys(S.lots).forEach(function (k) { var l = S.lots[k]; S2.lots[k] = l.pid === pid ? gMerge(l, { lista: gN(l.lista) * 0.9, venta: gN(l.venta) * 0.9 }) : l; });
+  esc.push({ n: 'Precios 10 % más bajos', util: gCabida(S2, pid).utilidad });
+  esc.push({ n: 'Solo se vende el 70 % de los lotes', util: t.empresa * 0.7 - t.costos });
+  var rojo = A.some(function (a) { return a.nivel === 'rojo'; }), amb = A.some(function (a) { return a.nivel === 'ambar'; });
+  return { estado: rojo ? 'no' : amb ? 'observar' : 'viable', alertas: A, t: t, V: V, ingPct: ingPct, margen: margen, util: util, utilPEN: utilPEN, emp: emp, esc: esc, pm: pm };
+}
+var GAIA_VIAB_TXT = { viable: 'Viable', observar: 'En observación', no: 'No viable', vacio: 'Sin datos' };
+
+/* ---------- Fechas (texto aaaa-mm-dd, sin zona horaria) ---------- */
+function gHoy() { var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
+function gAddMeses(f, n) {
+  var m = String(f || gHoy()).match(/^(\d{4})-(\d{2})-(\d{2})/); if (!m) return f;
+  var y = +m[1], mo = +m[2] - 1 + n, d = +m[3]; y += Math.floor(mo / 12); mo = ((mo % 12) + 12) % 12;
+  var dim = new Date(y, mo + 1, 0).getDate(); if (d > dim) d = dim;
+  return y + '-' + (mo < 9 ? '0' : '') + (mo + 1) + '-' + (d < 10 ? '0' : '') + d;
+}
+function gFechaTxt(f) { var m = String(f || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] + '/' + m[2] + '/' + m[1] : ''; }
+var r2 = function (v) { return Math.round((Number(v) || 0) * 100) / 100; };
+
+/** Plan de pagos de un lote → cronograma. plan: { tipo:'contado'|'financiado', precio, separacion, inicial, n, tea, fecha, fechaInicial, inicio, pagos:{k:{fecha,monto,medio,nota}} } */
+function gCronograma(pl) {
+  pl = pl || {};
+  var precio = gN(pl.precio), sep = Math.min(Math.max(gN(pl.separacion), 0), precio), rows = [], fecha = pl.fecha || gHoy(), pagos = pl.pagos || {};
+  var add = function (k, concepto, f, monto, extra) { var r = { k: String(k), concepto: concepto, fecha: f, monto: r2(monto), pago: pagos[k] || null }; for (var e in (extra || {})) r[e] = extra[e]; rows.push(r); };
+  if (sep > 0) add('sep', 'Separación', fecha, sep);
+  var F = 0, cuota = 0, n = 0, intTot = 0;
+  if (pl.tipo === 'contado') {
+    if (precio - sep > 0) add('saldo', 'Saldo al contado', pl.fechaInicial || fecha, precio - sep);
+  } else {
+    var ini = Math.min(Math.max(gN(pl.inicial), sep), precio);
+    if (ini - sep > 0) add('ini', sep > 0 ? 'Saldo de la inicial' : 'Inicial', pl.fechaInicial || fecha, ini - sep);
+    F = r2(precio - ini); n = Math.max(1, Math.floor(gN(pl.n)) || 1);
+    var i = gN(pl.tea) > 0 ? Math.pow(1 + gN(pl.tea) / 100, 1 / 12) - 1 : 0;
+    cuota = F > 0 ? r2(i ? F * i / (1 - Math.pow(1 + i, -n)) : F / n) : 0;
+    var saldo = F, inicio = pl.inicio || gAddMeses(fecha, 1);
+    for (var k = 1; k <= n && F > 0; k++) {
+      var it = r2(saldo * i), cap = k === n ? saldo : r2(cuota - it), m = k === n ? r2(saldo + it) : cuota;
+      saldo = r2(saldo - cap); intTot += it;
+      add(k, 'Cuota ' + k + ' de ' + n, gAddMeses(inicio, k - 1), m, { n: k, capital: cap, interes: it, saldo: Math.max(0, saldo) });
+    }
+  }
+  var total = rows.reduce(function (s, r) { return s + r.monto; }, 0);
+  return { rows: rows, total: r2(total), cuota: cuota, financiado: F, n: n, interes: r2(intTot), ultima: rows.length ? rows[rows.length - 1].fecha : '' };
+}
+/** Estado de una cuota a una fecha. */
+function gEstadoCuota(r, hoy) {
+  var pagado = r.pago ? gN(r.pago.monto) : 0;
+  if (r.pago && pagado >= r.monto - 0.01) return 'pagada';
+  if (r.fecha < (hoy || gHoy())) return pagado > 0 ? 'parcial' : 'vencida';
+  return pagado > 0 ? 'parcial' : 'pendiente';
+}
+var GAIA_CUOTA_TXT = { pagada: 'Pagada', vencida: 'Vencida', pendiente: 'Por cobrar', parcial: 'Pago parcial' };
+/** POSEIDON: todas las cuotas de los lotes vendidos o reservados con plan de pagos. Totales en soles. */
+function gCobranzas(S, f) {
+  f = f || {}; var cfg = S.config || {}, tc = gN(cfg.tc) || 1, hoy = f.hoy || gHoy(), mes = hoy.slice(0, 7), lim30 = gAddMeses(hoy, 1);
+  var rows = [], k = { cobrado: 0, vencido: 0, mes: 0, prox30: 0, pendiente: 0, clientes: {}, nVenc: 0 };
+  Object.keys(S.lots).forEach(function (id) {
+    var l = S.lots[id], p = S.projects[l.pid];
+    if (!p || !l.plan || (l.estado !== 'vendido' && l.estado !== 'reservado')) return;
+    if (f.pid && l.pid !== f.pid) return;
+    var cr = gCronograma(l.plan), pm = p.moneda || 'PEN';
+    cr.rows.forEach(function (r) {
+      var st = gEstadoCuota(r, hoy), pen = function (v) { return gConv(v, pm, 'PEN', tc); }, pag = r.pago ? gN(r.pago.monto) : 0, falta = Math.max(0, r.monto - pag);
+      k.cobrado += pen(pag);
+      if (st !== 'pagada') { k.pendiente += pen(falta); if (st === 'vencida' || (st === 'parcial' && r.fecha < hoy)) { k.vencido += pen(falta); k.nVenc++; } if (r.fecha.slice(0, 7) === mes) k.mes += pen(falta); if (r.fecha >= hoy && r.fecha <= lim30) k.prox30 += pen(falta); }
+      k.clientes[(l.cliente || l.id)] = 1;
+      rows.push({ l: l, p: p, pm: pm, r: r, estado: st, falta: falta, cliente: l.cliente || '' });
+    });
+  });
+  rows.sort(function (a, b) { return a.r.fecha < b.r.fecha ? -1 : a.r.fecha > b.r.fecha ? 1 : String(a.p.codigo + a.l.codigo).localeCompare(String(b.p.codigo + b.l.codigo), undefined, { numeric: true }); });
+  k.nClientes = Object.keys(k.clientes).length; delete k.clientes;
+  return { rows: rows, k: k, hoy: hoy };
+}
+
 </script>
 <script>
 const API="https://script.google.com/macros/s/AKfycbzlxl1AO3wOoPxZinmeJ4iJs-74O5K5apspd1kGAiS3cXTyA4G2UJdMqh_ePBPS83RJ/exec";
@@ -824,7 +1029,7 @@ function renderLista(){
   const fs=["Todas","Sin evaluar","En evaluación","Evaluadas","Aprobadas","Descartadas"];
   const q=buscar.toLowerCase();
   const items=FICHAS.filter(f=>(filtro==="Todas"||estadoDe(f)===filtro)&&(!q||[f.codigo,f.propietario,f.distrito,f.originador].join(" ").toLowerCase().includes(q)));
-  $("main").innerHTML=`${(can("minerva","editar")||can("eleuthia","editar"))?`<div class="actions" style="margin-top:14px">${evpUpload(["Registrar predio desde una evaluación (PDF)","sec"])}</div>`:""}<div style="margin-top:14px"><input id="iBuscar" type="search" placeholder="Buscar por código, propietario, distrito u originador" value="${esc(buscar)}" aria-label="Buscar"></div>
+  $("main").innerHTML=`<div class="actions" style="margin-top:14px"><button type="button" class="btn pri" data-g="nav" data-x="registro">+ Registrar predio</button>${(can("minerva","editar")||can("eleuthia","editar"))?evpUpload(["Registrar desde una evaluación (PDF)","sec"]):""}</div><div style="margin-top:14px"><input id="iBuscar" type="search" placeholder="Buscar por código, propietario, distrito u originador" value="${esc(buscar)}" aria-label="Buscar"></div>
    <div class="filters" role="group" aria-label="Filtrar">${fs.map(x=>`<button type="button" class="chip" data-f="${x}" aria-pressed="${x===filtro}">${x} (${x==="Todas"?FICHAS.length:FICHAS.filter(f=>estadoDe(f)===x).length})</button>`).join("")}</div>
    ${items.length?items.map(f=>`<button type="button" class="row" data-open="${esc(f.codigo)}">
       <span><span class="t">${esc(f.codigo)} · ${esc(f.propietario||"Sin propietario")}</span><br>
@@ -1054,15 +1259,15 @@ const vpen=(v,d=0)=>VC==="USD"?mon(v/(gN(GS.config.tc)||1),"USD",d):mon(v,"PEN",
 const thumb=(id,w=600)=>`https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w${w}`;
 const fdate=d=>(d instanceof Date?d:new Date(d+"T12:00:00")).toLocaleDateString("es-PE",{day:"numeric",month:"short",year:"numeric"});
 const dirty=()=>DIRTY_P||DIRTY_L||DIRTY_C;
-const NAV=[["inicio","gaia","GAIA","Inicio"],["predios","eleuthia","ELEUTHIA","Predios"],["proyectos","hephaestus","HEPHAESTUS","Proyectos"],["hades","hades","HADES","Modelo Redin"],["cabida","demeter","DEMETER","Cabida"],["tablero","apollo","APOLLO","Tablero"],["ajustes","gaia","GAIA","Ajustes"]];
+const NAV=[["inicio","gaia","GAIA","Inicio"],["predios","eleuthia","ELEUTHIA","Predios"],["proyectos","hephaestus","HEPHAESTUS","Proyectos"],["hades","hades","HADES","Modelo Redin"],["cabida","demeter","DEMETER","Cabida"],["tablero","apollo","APOLLO","Tablero"],["cobranzas","poseidon","POSEIDON","Cobranzas"],["ajustes","gaia","GAIA","Ajustes"]];
 
-const MODPERM={inicio:[],predios:["eleuthia","minerva"],proyectos:["hephaestus"],proyecto:["hephaestus"],cabida:["demeter"],hades:["hades"],tablero:["apollo"],ajustes:["ajustes"]};
+const MODPERM={inicio:[],predios:["eleuthia","minerva"],registro:["eleuthia","minerva"],proyectos:["hephaestus"],proyecto:["hephaestus"],cabida:["demeter"],viab:["demeter","hephaestus"],comercial:["apollo"],hades:["hades"],tablero:["apollo"],cobranzas:["poseidon"],ajustes:["ajustes"]};
 function can(mod,lvl){ if(!PERFIL) return false; if(PERFIL.rol==="admin") return true; const v=(PERFIL.permisos||{})[mod]; return lvl==="editar"?v==="editar":!!v; }
 function canView(v){ if(v==="ajustes") return !!PERFIL&&PERFIL.rol==="admin"; const ms=MODPERM[v]||[]; return !ms.length||ms.some(m=>can(m,"ver")); }
 function navOn(v){
-  const cur=v==="proyecto"?"proyectos":v, items=NAV.filter(n=>n[0]!=="inicio"&&canView(n[0]));
+  const cur=v==="proyecto"?"proyectos":v==="viab"?"cabida":v==="comercial"?"tablero":v==="registro"?"predios":v, items=NAV.filter(n=>n[0]!=="inicio"&&canView(n[0]));
   $("gnav").innerHTML=items.map(([k,ic,mod,l])=>`<button type="button" data-g="nav" data-x="${k}" aria-current="${k===cur}">${icon(ic)}<span><small>${mod}</small>${l}</span></button>`).join("");
-  $("tabbar").innerHTML=items.filter(n=>n[0]!=="ajustes").slice(0,5).map(([k,ic,mod,l])=>`<button type="button" data-g="nav" data-x="${k}" aria-current="${k===cur}">${icon(ic)}<span>${l}</span></button>`).join("");
+  $("tabbar").innerHTML=items.filter(n=>n[0]!=="ajustes"&&(n[0]!=="hades"||items.length<=6)).slice(0,5).map(([k,ic,mod,l])=>`<button type="button" data-g="nav" data-x="${k}" aria-current="${k===cur}">${icon(ic)}<span>${l}</span></button>`).join("");
 }
 function wide(on){ $("wrap").classList.toggle("narrow",!on); }
 function head(ic,mod,title){ setMod(ic); $("hMod").textContent=mod; $("hTitle").textContent=title; $("btnLista").hidden=true; }
@@ -1072,7 +1277,7 @@ function main(html){ $("main").innerHTML=html+`<div id="dirtyBar"></div>`; paint
   if(!canView("hades")) m.querySelectorAll('[data-g="goHades"]').forEach(b=>b.hidden=true);
   if(VIEW!=="proyectos"&&!canView("proyectos")) m.querySelectorAll('[data-g="openP"]').forEach(b=>b.hidden=true);
   const mod={proyecto:"hephaestus",cabida:"demeter",tablero:"apollo"}[VIEW]; if(mod) roLock(mod); }
-const RO_OK='[data-g="nav"],[data-g="goHades"],[data-g="htab"],[data-g="ptab"],[data-g="dmodo"],[data-g="vc"],[data-g="pfilt"],[data-g="openP"],[data-g="goCab"],[data-g="pdf"],[data-g="copy"],[data-gsel],[data-open],[data-f],#btnLista';
+const RO_OK='[data-g="nav"],[data-g="goHades"],[data-g="htab"],[data-g="ptab"],[data-g="dmodo"],[data-g="vc"],[data-g="pfilt"],[data-g="openP"],[data-g="goCab"],[data-g="pdf"],[data-g="rpdf"],[data-g="rxlsx"],[data-g="ralc"],#rPid,[data-g="copy"],[data-gsel],[data-open],[data-f],#btnLista';
 function roLock(mod){
   if(!PERFIL||can(mod,"editar")) return; const m=$("main");
   m.querySelectorAll("input,select,textarea,button").forEach(el=>{ if(!el.matches(RO_OK)) el.disabled=true; });
@@ -1085,7 +1290,7 @@ function paintDirty(){ const b=$("dirtyBar"); if(!b) return;
 function markDirty(k){ if(k==="L") DIRTY_L=true; else if(k==="C") DIRTY_C=true; else DIRTY_P=true; paintDirty(); }
 function keep(fn){ const y=scrollY, a=document.activeElement, id=a&&a.id; fn(); scrollTo(0,y); if(id&&$(id)){ const e=$(id); e.focus(); try{ const L=e.value.length; e.setSelectionRange(L,L);}catch(x){} } }
 function SX(){ let lots=GS.lots; if(DP&&DL){ lots={}; Object.keys(GS.lots).forEach(k=>{ if(GS.lots[k].pid!==DP.id) lots[k]=GS.lots[k]; }); DL.forEach(l=>{ lots[l.id]=l; }); }
-  const S={projects:{...GS.projects},lots,users:GS.users,config:DCFG||GS.config}; if(DP) S.projects[DP.id]=DP; return S; }
+  const S={projects:{...GS.projects},lots,users:GS.users,config:DCFG||GS.config,hades:GS.hades}; if(DP) S.projects[DP.id]=DP; return S; }
 function asesoresOpts(sel){ const c=GS.config.closer||{}; const us=GS.users.filter(u=>u.rol==="asesor");
   return `<option value="">Sin asignar</option>${c.key?`<option value="${esc(c.key)}" ${sel===c.key?"selected":""}>${esc(c.name||c.key)} (closer)</option>`:""}${us.map(u=>`<option value="${esc(u.usuario)}" ${sel===u.usuario?"selected":""}>${esc(u.nombre)}</option>`).join("")}`; }
 function nombreAsesor(k){ const c=GS.config.closer||{}; if(k&&k===c.key) return c.name||k; const u=GS.users.find(x=>x.usuario===k); return u?u.nombre:k; }
@@ -1103,7 +1308,7 @@ async function run(btn,label,fn){
 
 async function loadFichas(){ const d=await api("init"); P={...evalParamsDefault(),...d.params}; FICHAS=d.fichas; }
 async function go(v,pid){
-  if(!canView(v==="proyecto"?"proyectos":v)){ toast("No tienes acceso a ese módulo."); return false; }
+  if(!canView(v)){ toast("No tienes acceso a ese módulo."); return false; }
   if(dirty()&&!confirm("Tienes cambios sin guardar. ¿Salir sin guardarlos?")) return false;
   DIRTY_P=DIRTY_L=DIRTY_C=false; DELASK=""; EV=null; CUR=null; EVP=null; closeMenu();
   VIEW=v; if(pid!==undefined) PID=pid;
@@ -1113,19 +1318,20 @@ async function go(v,pid){
     if(VIEW==="predios"&&!EV) renderLista(); scrollTo(0,0); return; }
   wide(true); navOn(v);
   if(v==="inicio"){ loading("gaia","Inicio");
-    const jobs=[]; if(!GS&&["hephaestus","demeter","apollo","hades"].some(m=>can(m,"ver"))) jobs.push(api("g_estado").then(r=>{GS=r;}));
+    const jobs=[]; if(!GS&&["hephaestus","demeter","apollo","hades","poseidon"].some(m=>can(m,"ver"))) jobs.push(api("g_estado").then(r=>{GS=r;}));
     if(!FICHAS&&["eleuthia","minerva"].some(m=>can(m,"ver"))) jobs.push(loadFichas());
     await Promise.all(jobs.map(j=>j.catch(e=>toast(e.message)))); if(VIEW!=="inicio") return;
     DCFG=GS?clone(GS.config):null; DP=null; DL=null; vInicio(); scrollTo(0,0); return; }
-  if(!GS){ loading(NAV.find(n=>n[0]===(v==="proyecto"?"proyectos":v))[1],"Cargando…");
+  if(v==="registro"){ wide(false); navOn("registro"); return vRegistro(); }
+  if(!GS){ loading((NAV.find(n=>n[0]===({proyecto:"proyectos",viab:"cabida",comercial:"tablero"}[v]||v))||["","gaia"])[1],"Cargando…");
     try{ GS=await api("g_estado"); }catch(e){ $("main").innerHTML=`<div class="err" style="margin-top:20px">${esc(e.message)}</div>`; return; } }
   if(VIEW!==v) return;
   DCFG=clone(GS.config); UD=null; NU=null; HD=null; ILOT=null;
-  if(v==="proyecto"||v==="cabida"||v==="hades"){ if(!PID||!GS.projects[PID]) PID=(gProjList(GS)[0]||{}).id||null; DP=PID?clone(GS.projects[PID]):null; DL=PID?gLotsOf(GS,PID).map(clone):null; }
+  if(v==="proyecto"||v==="cabida"||v==="hades"||v==="viab"||v==="comercial"){ if(!PID||!GS.projects[PID]) PID=(gProjList(GS)[0]||{}).id||null; DP=PID?clone(GS.projects[PID]):null; DL=PID?gLotsOf(GS,PID).map(clone):null; }
   else { DP=null; DL=null; }
   draw(); scrollTo(0,0);
 }
-function draw(){ ({inicio:vInicio,hades:vHades,proyectos:vProyectos,proyecto:vProyecto,cabida:vCabida,tablero:vTablero,ajustes:vAjustes})[VIEW](); }
+function draw(){ ({inicio:vInicio,hades:vHades,viab:vViab,comercial:vComercial,cobranzas:vCobranzas,registro:vRegistro,proyectos:vProyectos,proyecto:vProyecto,cabida:vCabida,tablero:vTablero,ajustes:vAjustes})[VIEW](); }
 
 /* ---------- HEPHAESTUS: proyectos ---------- */
 function vProyectos(){
@@ -1148,9 +1354,10 @@ function pcard(p){
 
 function nid(){ return DP.id+"-"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function pasos(p){
-  const n=(DL&&DP&&DP.id===p.id?DL:gLotsOf(GS,p.id)).length, L=p.estado==="lanzado", mod=!!p.modeloOk||L;
+  const n=(DL&&DP&&DP.id===p.id?DL:gLotsOf(GS,p.id)).length, L=p.estado==="lanzado", mod=!!p.modeloOk||L, ap=(p.aprob||{}).estado;
   const st=[["proyecto","Esqueleto",!!(p.nombre&&p.ubicacion),`data-g="openP" data-x="${esc(p.id)}"`],["hades","Modelo de negocio",mod,`data-g="goHades" data-x="${esc(p.id)}"`],
-    ["cabida","Lotes y cabida",n>0,`data-g="goCab" data-x="${esc(p.id)}"`],["lanzado","Lanzado",L,`data-g="goCab" data-x="${esc(p.id)}"`]];
+    ["cabida","Lotes y cabida",n>0,`data-g="goCab" data-x="${esc(p.id)}"`],["viab",ap==="pendiente"?"Viabilidad · por aprobar":ap==="rechazado"?"Viabilidad · observado":"Viabilidad y aprobación",ap==="aprobado"||L,`data-g="goViab" data-x="${esc(p.id)}"`],
+    ["comercial","Comercialización",L,`data-g="goCom" data-x="${esc(p.id)}"`]];
   return `<nav class="pasos" aria-label="Avance del proyecto">${st.map(([v,l,ok,at],i)=>`<button type="button" class="paso ${ok?"ok":""} ${VIEW===v?"cur":""}" ${at}><span class="n">${ok?"✓":i+1}</span><span class="l">${l}</span></button>`).join('<span class="sep" aria-hidden="true"></span>')}</nav>`;
 }
 function vProyecto(){
@@ -1259,13 +1466,15 @@ function vCabida(){
         </div><div class="actions"><button type="button" class="btn pri sm" data-g="bulk">Agregar lotes</button></div></details></div>
       <p class="hint">Bolsa: déjala vacía para usar la fórmula, o escribe un monto para fijarla a mano. El estado y el asesor de cada lote se manejan en APOLLO.</p></div>
     <div class="panel"><h3>2. Cabida financiera</h3><div id="cabRes">${cabRes()}</div>${stackIngreso()}</div>
+    <div id="viabBox">${viabMini()}</div>
     <div class="panel"><h3>3. Costos del proyecto</h3><p class="hint" style="margin:0 0 10px">Planilla, notariales, obras, habilitación, publicidad… Se restan de lo que queda para la empresa. En ${m==="USD"?"dólares":"soles"}.</p>
       <div class="tablebox"><table><thead><tr><th>Concepto</th><th class="r">Monto</th><th></th></tr></thead><tbody>
       ${p.costos.map((c,i)=>`<tr><td><input id="gco-n-${i}" data-gco="${i}" data-k="nombre" value="${esc(c.nombre)}" aria-label="Concepto"></td><td class="r"><input class="n" id="gco-m-${i}" data-gco="${i}" data-k="monto" data-num="1" inputmode="decimal" value="${esc(c.monto)}" aria-label="Monto"></td><td><button type="button" class="btn sec sm" data-g="costoDel" data-x="${i}" aria-label="Quitar">✕</button></td></tr>`).join("")||`<tr><td colspan="3" class="hint">Sin costos registrados.</td></tr>`}
       </tbody></table></div><div class="actions"><button type="button" class="btn sec sm" data-g="costoAdd">+ Agregar costo</button></div></div>
+    ${finPanel(p,L)}
     <div class="actions">
       <button type="button" class="btn sec" data-g="pdf">Descargar cabida en PDF</button>
-      ${L?`<button type="button" class="btn sec" data-g="borrador">Volver a borrador</button>`:`<button type="button" class="btn pri" data-g="lanzar">Lanzar proyecto</button>`}
+      ${L?`<button type="button" class="btn sec" data-g="borrador">Volver a borrador</button>`:`<button type="button" class="btn pri" data-g="goViab" data-x="${esc(p.id)}">Ver viabilidad y aprobación →</button>`}
     </div><p class="hint">El PDF se guarda también en tu Drive, carpeta "GAIA - Cabidas financieras". Si tienes cambios sin guardar, se guardan antes.</p>`);
   lotesRes();
 }
@@ -1305,6 +1514,7 @@ function updCab(){
   const r=$("cabRes"); if(r) r.innerHTML=cabRes();
   const e=$("cEmp"); if(e) e.innerHTML=empPct();
   const s=$("cStack"), st=stackIngreso(); if(s) s.outerHTML=st||"<div id='cStack'></div>";
+  const vb=$("viabBox"); if(vb) vb.innerHTML=viabMini();
   const m=DP.moneda||"PEN"; const hs=$("hShareP"); if(hs) hs.innerHTML=shareBar(DP.reparto); const hi=$("hIgual"); if(hi) hi.innerHTML=igualHTML(DP); lotesRes();
   (DL||[]).forEach(l=>{ const x=gLot(DP,l,GS.config); const a=$("ci-"+l.id), b=$("ce-"+l.id), c=$("gbo-"+l.id);
     if(a) a.textContent=mon(x.ingreso,m); if(b) b.textContent=mon(x.empresa,m); if(c){ c.placeholder=fm(x.auto,2); c.classList.toggle("manual",x.manual); } });
@@ -1313,6 +1523,7 @@ function updCab(){
 /* ---------- APOLLO: tablero ---------- */
 function vTablero(){
   if(ATAB==="inv") return vInventario();
+  if(ATAB==="rep") return vReporte();
   head("apollo","GAIA · APOLLO","Utilidades y comisiones");
   const S={projects:GS.projects,lots:GS.lots,users:GS.users,config:DCFG}, D=gDashboard(S,DMODO), per=D.per, mm=per.meses===1?"mes":"meses";
   const ps=gProjList(GS), us=GS.users.filter(u=>u.rol==="asesor"), pAct=ps.filter(p=>D.P[p.id]);
@@ -1394,8 +1605,10 @@ async function guardar(btn){
     else {
       if(DIRTY_L){ const cods=DL.map(l=>String(l.codigo).trim()); if(cods.some(c=>!c)) throw new Error("Hay lotes sin código.");
         const dup=cods.find((c,i)=>cods.indexOf(c)!==i); if(dup) throw new Error("El código de lote "+dup+" está repetido.");
-        const r=await api("g_lotes",{pid:DP.id,lotes:DL}); GS.lots=r.lots; DL=gLotsOf(GS,DP.id).map(clone); DIRTY_L=false; }
-      if(DIRTY_P){ const r=await api("g_proyecto",{proyecto:DP}); GS.projects[DP.id]=r.proyecto; DP=clone(r.proyecto); DIRTY_P=false; }
+        const r=await api("g_lotes",{pid:DP.id,lotes:DL}); GS.lots=r.lots; DL=gLotsOf(GS,DP.id).map(clone); DIRTY_L=false;
+        if(r.proyecto){ GS.projects[DP.id]=r.proyecto; DP.aprob=r.proyecto.aprob; toast("La cabida cambió: vuelve a enviarla a aprobación."); } }
+      if(DIRTY_P){ const prev=(GS.projects[DP.id].aprob||{}).estado; const r=await api("g_proyecto",{proyecto:DP}); GS.projects[DP.id]=r.proyecto; DP=clone(r.proyecto); DIRTY_P=false;
+        if(prev&&!(r.proyecto.aprob||{}).estado) toast("El modelo o la cabida cambió: vuelve a enviarla a aprobación."); }
     }
     keep(draw); toast("Cambios guardados.");
   });
@@ -1530,7 +1743,7 @@ document.addEventListener("input",e=>{
 });
 document.addEventListener("change",e=>{
   const t=e.target;
-  if(t.dataset.gsel){ go(VIEW==="hades"?"hades":"cabida",t.value).then(r=>{ if(r===false) keep(draw); }); return; }
+  if(t.dataset.gsel){ go(["hades","viab","comercial"].includes(VIEW)?VIEW:"cabida",t.value).then(r=>{ if(r===false) keep(draw); }); return; }
   if(t.dataset.ggas!==undefined&&VIEW==="tablero") keep(draw);
   if(t.dataset.gup){ const fs=[...(t.files||[])]; t.value=""; if(!fs.length) return;
     if(t.dataset.gup==="fotos") subirFotos(fs); else if(t.dataset.gup==="portada") subirPortada(fs[0]); else importar(fs[0]); }
@@ -1538,7 +1751,7 @@ document.addEventListener("change",e=>{
 addEventListener("beforeunload",e=>{ if(dirty()){ e.preventDefault(); e.returnValue=""; } });
 
 /* ---------- Usuarios (gerentes y asesores) ---------- */
-const PERM_MODS=[["eleuthia","ELEUTHIA · Predios"],["minerva","MINERVA · Evaluación"],["hephaestus","HEPHAESTUS · Proyectos"],["demeter","DEMETER · Cabida"],["hades","HADES · Calculadora Redin"],["apollo","APOLLO · Tablero"]];
+const PERM_MODS=[["eleuthia","ELEUTHIA · Predios"],["minerva","MINERVA · Evaluación"],["hephaestus","HEPHAESTUS · Proyectos"],["demeter","DEMETER · Cabida"],["hades","HADES · Calculadora Redin"],["apollo","APOLLO · Tablero"],["poseidon","POSEIDON · Cobranzas"]];
 function usersPanel(){
   if(!UD) UD=GS.users.map(u=>({usuario:u.usuario,nombre:u.nombre,rol:u.rol==="gerente"?"gerente":"asesor",activo:u.activo,permisos:{...(u.permisos||{})},tieneClave:u.tieneClave}));
   if(!NU) NU={usuario:"",nombre:"",rol:"gerente",activo:true,permisos:{}};
@@ -1597,7 +1810,16 @@ function vInicio(){
         <span class="lbl">${esc(p.nombre)}</span><span class="trk"><i class="c-vend" style="width:${w(s.vendido)}%"></i><i class="c-res" style="width:${w(s.reservado)}%"></i><i class="c-disp" style="width:${w(s.disponible)}%"></i></span>
         <span class="val">${s.vendido}/${s.disponible+s.reservado+s.vendido}</span></div>`).join("")||`<p class="hint">Aún no hay lotes.</p>`}</div>
       <div class="legend"><span><i class="c-vend"></i>Vendidos</span><span><i class="c-res"></i>Reservados</span><span><i class="c-disp"></i>Disponibles</span></div></div>`;
-    if(can("demeter","ver")||can("hephaestus","ver")) gProjList(GS).filter(p=>p.estado!=="lanzado").forEach(p=>todo.push({c:"var(--c3)",t:`${p.codigo} · ${p.nombre}`,s:!p.modeloOk?"Borrador: define su modelo en HADES":"Borrador: carga lotes y precios en DEMETER",a:!p.modeloOk&&can("hades","ver")?`data-g="goHades" data-x="${esc(p.id)}"`:can("demeter","ver")?`data-g="goCab" data-x="${esc(p.id)}"`:`data-g="openP" data-x="${esc(p.id)}"`,pill:`<span class="pill info">Borrador</span>`}));
+    if(can("demeter","ver")||can("hephaestus","ver")) gProjList(GS).filter(p=>p.estado!=="lanzado").forEach(p=>{ const ap=(p.aprob||{}).estado, nl=gLotsOf(GS,p.id).length, v=nl?gViab({...GS},p.id):null, id=esc(p.id);
+      const x=!p.modeloOk?{s:"Define cómo se comercializa en HADES",a:`data-g="goHades" data-x="${id}"`,pill:`<span class="pill info">Modelo</span>`}
+        :!nl?{s:"Carga lotes, áreas y precios en DEMETER",a:`data-g="goCab" data-x="${id}"`,pill:`<span class="pill info">Cabida</span>`}
+        :ap==="pendiente"?{s:PERFIL.rol==="admin"?`Espera tu aprobación · ${GAIA_VIAB_TXT[v.estado].toLowerCase()}`:"Enviado a aprobación",a:`data-g="goViab" data-x="${id}"`,pill:`<span class="pill ${PERFIL.rol==="admin"?"fav":"info"}">${PERFIL.rol==="admin"?"Aprobar":"En revisión"}</span>`,top:PERFIL.rol==="admin"}
+        :ap==="aprobado"?{s:"Aprobado: asigna asesores y lanza la comercialización",a:`data-g="goCom" data-x="${id}"`,pill:`<span class="pill fav">Lanzar</span>`}
+        :ap==="rechazado"?{s:"Observado: ajusta y vuelve a enviar",a:`data-g="goViab" data-x="${id}"`,pill:`<span class="pill des">Observado</span>`}
+        :{s:`Viabilidad: ${GAIA_VIAB_TXT[v.estado].toLowerCase()}${v.alertas.length?" · "+v.alertas.length+" alerta(s)":""} · falta aprobar`,a:`data-g="goViab" data-x="${id}"`,pill:`<span class="pill ${SEMC[v.estado]}">${GAIA_VIAB_TXT[v.estado]}</span>`};
+      todo.push({c:"var(--c3)",t:`${p.codigo} · ${p.nombre}`,...x}); });
+    if(can("poseidon","ver")){ const C=gCobranzas(GS,{}); if(C.k.nVenc) todo.unshift({c:"var(--des-ink)",t:`${C.k.nVenc} cuota${C.k.nVenc===1?"":"s"} vencida${C.k.nVenc===1?"":"s"}`,s:`S/ ${fm(C.k.vencido)} por cobrar atrasado`,a:`data-g="nav" data-x="cobranzas"`,pill:`<span class="pill des">Cobrar</span>`,top:1}); }
+    todo.sort((a,b)=>(b.top?1:0)-(a.top?1:0));
   }
   if(FICHAS){
     FICHAS.filter(f=>estadoDe(f)==="Sin evaluar").forEach(f=>todo.push({c:"var(--c2)",t:`${f.codigo} · ${f.propietario||"Sin propietario"}`,s:`${f.distrito||""}${f.area?" · "+num(f.area)+" m²":""} · por evaluar`,a:`data-open="${esc(f.codigo)}"`,pill:`<span class="pill att">Sin evaluar</span>`}));
@@ -1606,7 +1828,7 @@ function vInicio(){
   const st={predios:FICHAS?`${FICHAS.length} predios · ${FICHAS.filter(f=>estadoDe(f)==="Sin evaluar").length} sin evaluar`:"Captación y evaluación",
     proyectos:GS?`${Object.keys(GS.projects).length} proyectos · ${Object.keys(GS.lots).length} lotes`:"Proyectos y lotes",
     cabida:GS?`${gProjList(GS).filter(p=>p.estado==="lanzado").length} lanzados · ${gProjList(GS).filter(p=>p.estado!=="lanzado").length} en borrador`:"Cabida financiera",
-    tablero:GS&&can("apollo","ver")?`Bolsa ${vpen(gDashboard(GS,"proy").bolsa)}`:"Utilidades y comisiones", ajustes:GS?`${GS.users.length} usuarios`:"Usuarios y catálogo", hades:GS&&GS.hades?`${Object.keys(GS.hades.modelos).length} modelos Redin`:"Criterios de ganancia"};
+    tablero:GS&&can("apollo","ver")?`Bolsa ${vpen(gDashboard(GS,"proy").bolsa)}`:"Utilidades y comisiones", ajustes:GS?`${GS.users.length} usuarios`:"Usuarios y catálogo", cobranzas:GS&&can("poseidon","ver")?`Vencido S/ ${fm(gCobranzas(GS,{}).k.vencido)}`:"Cronogramas y pagos", hades:GS&&GS.hades?`${Object.keys(GS.hades.modelos).length} modelos Redin`:"Criterios de ganancia"};
   const mods=NAV.filter(n=>n[0]!=="inicio"&&canView(n[0]));
   const tiles=mods.map(([k,ic,mod,l])=>`<button type="button" class="tile" data-g="nav" data-x="${k}">${icon(ic)}<span><small>${mod}</small><b>${l}</b><span class="m">${esc(st[k]||"")}</span></span></button>`).join("");
   main(`<div class="hello"><p class="mini" style="margin:0;text-transform:capitalize">${esc(fecha)}</p><h2>${saludo}, ${esc(nombre)}</h2></div>
@@ -1915,6 +2137,9 @@ function hModelos(MS,orden){
         <span class="m">Asesor: ${esc(reglaTxt({regla:M.regla}))}</span></div></button>`;}).join("")}</div>
     <div class="actions"><button type="button" class="btn sec sm" data-g="hnew">+ Nuevo modelo${k?" (copia del elegido)":""}</button><button type="button" class="btn sec sm" data-g="hreset">Restablecer el modelo Redin original</button></div>
     ${k?hEditor(k,MS[k]):`<div class="empty" style="margin-top:14px">Elige un modelo para ver y cambiar sus criterios.</div>`}
+    <div class="panel"><h3>Criterios de viabilidad (todos los proyectos)</h3><p class="hint" style="margin:0 0 10px">Con esto GAIA decide si un proyecto es viable, está en observación o no es viable. El ingreso bruto mínimo se define en cada modelo.</p><div class="fgrid">
+      <div><label for="hv-utilidadMin">Utilidad mínima por proyecto</label><div class="pct"><input id="hv-utilidadMin" data-hv="utilidadMin" data-num="1" inputmode="decimal" value="${esc((HD.viab||{}).utilidadMin??GAIA_VIAB_DEF.utilidadMin)}"><span>S/</span></div><div class="hint">Por debajo, el proyecto queda en observación.</div></div>
+      <div><label for="hv-empMin">A la empresa le debe quedar al menos</label><div class="pct"><input id="hv-empMin" data-hv="empMin" data-num="1" inputmode="decimal" value="${esc((HD.viab||{}).empMin??GAIA_VIAB_DEF.empMin)}"><span>% del ingreso</span></div><div class="hint">Avisa cuando el reparto se lleva casi todo.</div></div></div></div>
     <div class="panel"><h3>Modelo con el que nace cada proyecto</h3><p class="hint" style="margin:0 0 10px">Cuando apruebas un predio en MINERVA, el proyecto se crea con el modelo de su destino.</p><div class="fgrid">
       ${DESTS.map(d=>`<div><label for="hd-${d}">${d}</label><select id="hd-${d}" data-hd="${esc(d)}">${orden.map(key=>`<option value="${esc(key)}" ${(HD.destinos||{})[d]===key?"selected":""}>${esc(MS[key].n)}</option>`).join("")}</select></div>`).join("")}</div></div>`;
 }
@@ -1942,6 +2167,12 @@ function hEditor(k,M){
       <div><label for="hg-modo">Forma de pago</label><select id="hg-modo" data-hg="modo"><option value="pct" ${rg.modo!=="fijo"?"selected":""}>% de la bolsa del lote</option><option value="fijo" ${rg.modo==="fijo"?"selected":""}>Monto fijo por lote</option></select></div>
       ${rg.modo==="fijo"?`${num("hg","fijo",rg.fijo,"Monto por lote vendido","")}<div><label for="hg-monedaFijo">Moneda</label><select id="hg-monedaFijo" data-hg="monedaFijo"><option value="PEN" ${rg.monedaFijo!=="USD"?"selected":""}>Soles</option><option value="USD" ${rg.monedaFijo==="USD"?"selected":""}>Dólares</option></select></div>`:num("hg","pct",rg.pct,"Para el asesor","% de la bolsa")}
       <div class="full hint">El resto de la bolsa es para el closer.</div></div>
+    <h3 style="margin:16px 0 8px">Financiamiento directo al cliente</h3><div class="fgrid">
+      ${num("hf","inicialPct",(M.financ||{}).inicialPct,"Inicial mínima","% del precio")}${num("hf","separacion",(M.financ||{}).separacion,"Separación","","En la moneda del proyecto; se descuenta de la inicial.")}
+      ${num("hf","maxCuotas",(M.financ||{}).maxCuotas,"Cuotas máximas","meses")}${num("hf","tea",(M.financ||{}).tea,"Interés (TEA)","%","0 = sin interés.")}
+      <div class="full hint">APOLLO usa estas condiciones al simular cuotas; en DEMETER puedes ajustarlas para un proyecto.</div></div>
+    <h3 style="margin:16px 0 8px">Viabilidad</h3><div class="fgrid">
+      ${num("hm","ingresoMin",M.ingresoMin,"Ingreso bruto mínimo","% de las ventas","Si el ingreso de la empresa queda por debajo, el proyecto sale como no viable.")}</div>
     <div class="actions"><button type="button" class="btn sec sm" data-g="hcalc">Probar en la calculadora →</button>${u?"":`<button type="button" class="btn sec sm" data-g="hdel" style="color:var(--des-ink)">Eliminar modelo</button>`}</div></div>`;
 }
 
@@ -1977,9 +2208,11 @@ document.addEventListener("input",e=>{ if(VIEW!=="hades"||!HD) return; const t=e
   if(d.hs!==undefined){ SIM[d.hs]=val; if(d.hs==="modelo") SIM.bonos=[]; return keep(draw); }
   if(d.hsb!==undefined){ SIM.bonos[+d.hsb]=t.checked; return keep(draw); }
   if(d.hd!==undefined){ HD.destinos=HD.destinos||{}; HD.destinos[d.hd]=t.value; markDirty("C"); return; }
+  if(d.hv!==undefined){ HD.viab=HD.viab||{}; HD.viab[d.hv]=val; markDirty("C"); return; }
   if(!M) return;
   if(d.hm!==undefined){ M[d.hm]=val; markDirty("C"); return; }
   if(d.hp!==undefined){ M.pricing[d.hp]=val; markDirty("C"); return; }
+  if(d.hf!==undefined){ M.financ=M.financ||{}; M.financ[d.hf]=val; markDirty("C"); return; }
   if(d.hr!==undefined){ M.reparto[d.hr]=val; markDirty("C"); const s=$("hShare"); if(s) s.innerHTML=shareBar(M.reparto); return; }
   if(d.hb!==undefined){ M.reparto.bonos[+d.hb][d.k]=val; markDirty("C"); const s=$("hShare"); if(s) s.innerHTML=shareBar(M.reparto); return; }
   if(d.hg!==undefined){ M.regla[d.hg]=val; markDirty("C"); if(d.hg==="modo") keep(draw); return; }
@@ -2005,7 +2238,7 @@ document.addEventListener("change",e=>{ if(VIEW==="hades"&&e.target.dataset.hm==
 /* ================= APOLLO · inventario y ventas de lotes ================= */
 let ATAB="resumen", IPID=null, IFILT="todos", IBUS="", ILOT=null;
 const EST_ORD=["disponible","reservado","vendido","bloqueado"];
-function apolloTabs(){ return `<div class="gtools" style="margin-bottom:0"><div class="seg" role="group" aria-label="Vista"><button type="button" data-g="atab" data-x="resumen" aria-pressed="${ATAB==="resumen"}">Utilidades y comisiones</button><button type="button" data-g="atab" data-x="inv" aria-pressed="${ATAB==="inv"}">Inventario de lotes</button></div></div>`; }
+function apolloTabs(){ return `<div class="gtools" style="margin-bottom:0"><div class="seg" role="group" aria-label="Vista"><button type="button" data-g="atab" data-x="resumen" aria-pressed="${ATAB==="resumen"}">Utilidades y comisiones</button><button type="button" data-g="atab" data-x="inv" aria-pressed="${ATAB==="inv"}">Inventario de lotes</button><button type="button" data-g="atab" data-x="rep" aria-pressed="${ATAB==="rep"}">Reporte</button></div></div>`; }
 function vInventario(){
   head("apollo","GAIA · APOLLO","Inventario de lotes");
   const ps=gProjList(GS).filter(p=>gLotsOf(GS,p.id).length);
@@ -2031,28 +2264,443 @@ function vInventario(){
       ${estadoPill(l.estado)}<span class="as">${l.asesor?esc(nombreAsesor(l.asesor)):"Sin asesor"}</span></button>`).join("")||`<p class="hint">No hay lotes con ese filtro.</p>`}</div>
     ${ILOT?invSheet():""}`);
 }
-function invSheet(){
-  const l=GS.lots[ILOT]; if(!l) return ""; const p=GS.projects[l.pid], sp=gSplit(p,l,GS.config);
-  return `<div class="sheet-bg" data-g="iclose"></div><div class="sheet" role="dialog" aria-label="Lote ${esc(l.codigo)}" style="top:auto;bottom:24px">
-    <div class="who"><div><b style="font-size:20px;font-family:var(--display)">Lote ${esc(l.codigo)}</b><span class="mini">${esc(p.codigo)} · ${fm(l.m2,2)} m² · ${gN(l.lista)?mon(l.lista,p.moneda):"sin precio"}</span></div></div>
-    <div><label>Estado</label><div class="estbtns">${EST_ORD.map(e=>`<button type="button" class="estb st-b-${e}" data-g="iest" data-x="${e}" aria-pressed="${l.estado===e}">${GAIA_ESTADO_TXT[e]}</button>`).join("")}</div></div>
-    <div><label for="iAs">Asesor</label><select id="iAs">${asesoresOpts(l.asesor)}</select></div>
-    <p class="mini" style="margin:0">Bolsa del lote: S/ ${fm(sp.x.bolsaPEN)} · asesor S/ ${fm(sp.asesor)} · closer S/ ${fm(sp.closer)}</p>
-    <div class="inline"><button type="button" class="btn pri" data-g="isave" style="flex:1">Guardar</button><button type="button" class="btn sec" data-g="iclose">Cancelar</button></div></div>`;
+/* Ficha del lote: estado, asesor, venta y forma de pago con simulador de cuotas */
+let ILW=null;
+function asesoresOptsP(sel,p){ const c=GS.config.closer||{}, asig=(p&&p.asesores)||[], us=GS.users.filter(u=>u.rol==="asesor");
+  const o=(k,n)=>`<option value="${esc(k)}" ${sel===k?"selected":""}>${esc(n)}</option>`;
+  const todos=(c.key?[[c.key,(c.name||c.key)+" (closer)"]]:[]).concat(us.map(u=>[u.usuario,u.nombre]));
+  if(!asig.length) return `<option value="">Sin asignar</option>`+todos.map(([k,n])=>o(k,n)).join("");
+  return `<option value="">Sin asignar</option><optgroup label="Asesores del proyecto">${todos.filter(([k])=>asig.includes(k)).map(([k,n])=>o(k,n)).join("")}</optgroup><optgroup label="Otros">${todos.filter(([k])=>!asig.includes(k)).map(([k,n])=>o(k,n)).join("")}</optgroup>`; }
+function planInicial(l,p){
+  const F=gFinanc(p,GS), precio=gN(l.venta)||gN(l.lista), hoy=gHoy();
+  if(l.plan) return {...clone(l.plan),precio:gN(l.plan.precio)||precio};
+  return {tipo:"financiado",precio,separacion:Math.min(gN(F.separacion),precio),inicial:Math.ceil(precio*gN(F.inicialPct)/100),n:Math.max(1,gN(F.maxCuotas)),tea:gN(F.tea),fecha:hoy,fechaInicial:hoy,inicio:gAddMeses(hoy,1)};
 }
-let IEST=null;
+function abrirLote(id){ const l=GS.lots[id], p=GS.projects[l.pid];
+  ILW={estado:l.estado,asesor:l.asesor||"",venta:gN(l.venta)||"",fechaVenta:l.fechaVenta||"",cliente:l.cliente||"",pagada:!!l.pagada,plan:planInicial(l,p),conPlan:!!l.plan||l.estado==="reservado"||l.estado==="vendido"}; }
+function precioPlan(l){ return gN(ILW.venta)||gN(l.lista); }
+function simAvisos(p,pl){ const F=gFinanc(p,GS), A=[], pr=gN(pl.precio);
+  if(pl.tipo!=="contado"){ if(pr&&gN(pl.inicial)<pr*gN(F.inicialPct)/100-0.01) A.push(`La inicial es menor al mínimo de ${fm(F.inicialPct)} % (${mon(pr*gN(F.inicialPct)/100,p.moneda)}).`);
+    if(gN(pl.n)>gN(F.maxCuotas)) A.push(`Son más cuotas que el máximo de ${fm(F.maxCuotas)} definido para el proyecto.`); }
+  return A; }
+function simResumen(l,p){
+  const pl=ILW.plan; pl.precio=precioPlan(l); const cr=gCronograma(pl), A=simAvisos(p,pl), m=p.moneda||"PEN", fin=pl.tipo!=="contado";
+  return `<div class="kpis" style="margin-top:0;grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
+      ${fin?`<div class="kpi hero"><small>Cuota mensual</small><b>${mon(cr.cuota,m,2)}</b><span>${cr.n} cuotas${gN(pl.tea)?` · TEA ${fm(pl.tea,2)} %`:" sin interés"}</span></div>
+      <div class="kpi"><small>Paga hasta</small><b style="font-size:20px">${gFechaTxt(cr.ultima)}</b><span>financiado ${mon(cr.financiado,m)}</span></div>`
+      :`<div class="kpi hero"><small>Saldo al contado</small><b>${mon(gN(pl.precio)-Math.min(gN(pl.separacion),gN(pl.precio)),m,2)}</b><span>el ${gFechaTxt(pl.fechaInicial||pl.fecha)}</span></div>`}
+      <div class="kpi"><small>Total a pagar</small><b style="font-size:20px">${mon(cr.total,m)}</b><span>${cr.interes?"intereses "+mon(cr.interes,m):"precio del lote"}</span></div></div>
+    ${A.length?`<ul class="alerts">${A.map(t=>`<li class="al-ambar">${esc(t)}</li>`).join("")}</ul>`:""}
+    <details style="margin-top:8px"><summary class="mini" style="cursor:pointer">Ver cronograma (${cr.rows.length} pagos)</summary><div class="tablebox" style="max-height:220px;overflow:auto;margin-top:6px"><table><thead><tr><th>Concepto</th><th>Vence</th><th class="r">Monto</th></tr></thead><tbody>
+      ${cr.rows.map(r=>`<tr><td>${esc(r.concepto)}</td><td>${gFechaTxt(r.fecha)}</td><td class="r">${mon(r.monto,m,2)}</td></tr>`).join("")}</tbody></table></div></details>`;
+}
+function invSheet(){
+  const l=GS.lots[ILOT]; if(!l||!ILW) return ""; const p=GS.projects[l.pid], sp=gSplit(p,{...l,asesor:ILW.asesor},GS.config), W=ILW, pl=W.plan, F=gFinanc(p,GS), m=p.moneda||"PEN";
+  const conVenta=W.estado==="reservado"||W.estado==="vendido", pagos=l.plan&&l.plan.pagos&&Object.keys(l.plan.pagos).length;
+  const nOpts=[]; for(let i=1;i<=Math.max(gN(F.maxCuotas),gN(pl.n),1);i++) nOpts.push(i);
+  return `<div class="sheet-bg" data-g="iclose"></div><div class="sheet big" role="dialog" aria-label="Lote ${esc(l.codigo)}">
+    <div class="who"><div><b style="font-size:20px;font-family:var(--display)">Lote ${esc(l.codigo)}</b><span class="mini">${esc(p.codigo)} · ${esc(p.nombre)} · ${fm(l.m2,2)} m² · ${gN(l.lista)?mon(l.lista,m):"sin precio"}</span></div></div>
+    <div><label>Estado</label><div class="estbtns" style="grid-template-columns:repeat(4,1fr)">${EST_ORD.map(e=>`<button type="button" class="estb st-b-${e}" data-g="iest" data-x="${e}" aria-pressed="${W.estado===e}">${GAIA_ESTADO_TXT[e]}</button>`).join("")}</div></div>
+    <div class="fgrid"><div><label for="iAs">Asesor</label><select id="iAs" data-iw="asesor">${asesoresOptsP(W.asesor,p)}</select></div>
+      ${conVenta?`<div><label for="iCli">Cliente</label><input id="iCli" data-iw="cliente" maxlength="120" value="${esc(W.cliente)}" placeholder="Nombre del comprador"></div>`:""}
+      ${W.estado==="vendido"?`<div><label for="iPv">Precio de venta (${curS(m)})</label><input id="iPv" data-iw="venta" type="number" inputmode="decimal" min="0" step="any" value="${esc(W.venta)}" placeholder="${gN(l.lista)?fm(l.lista,0)+" (lista)":"Obligatorio"}"></div>
+        <div><label for="iFv">Fecha de venta</label><input id="iFv" data-iw="fechaVenta" type="date" value="${esc(W.fechaVenta)}"></div>`:""}</div>
+    ${W.estado==="vendido"?`<label class="inline" style="gap:8px;font-weight:600;margin:0"><input id="iPag" data-iw="pagada" type="checkbox" ${W.pagada?"checked":""} style="width:auto;min-height:0"> Comisión del asesor ya pagada</label>`:""}
+    <p class="mini" style="margin:0">Bolsa del lote: S/ ${fm(sp.x.bolsaPEN)} · asesor S/ ${fm(sp.asesor)} · closer S/ ${fm(sp.closer)}</p>
+    <div class="simbox"><div class="inline" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><b>${conVenta?"Forma de pago del cliente":"Simular cuotas para un cliente"}</b>
+      <div class="seg" role="group" aria-label="Forma de pago">${conVenta?`<button type="button" data-g="iplan" data-x="no" aria-pressed="${!W.conPlan}">Sin plan</button>`:""}<button type="button" data-g="iplan" data-x="contado" aria-pressed="${W.conPlan&&pl.tipo==="contado"}">Contado</button><button type="button" data-g="iplan" data-x="financiado" aria-pressed="${W.conPlan&&pl.tipo!=="contado"}">Financiado</button></div></div>
+      ${W.conPlan?`<div class="fgrid" style="margin-top:10px">
+        <div><label for="sSep">Separación (${curS(m)})</label><input id="sSep" data-ip="separacion" type="number" inputmode="decimal" step="any" min="0" value="${esc(pl.separacion)}"></div>
+        <div><label for="sFe">Fecha de separación</label><input id="sFe" data-ip="fecha" type="date" value="${esc(pl.fecha)}"></div>
+        ${pl.tipo!=="contado"?`<div><label for="sIni">Inicial total (${curS(m)})</label><input id="sIni" data-ip="inicial" type="number" inputmode="decimal" step="any" min="0" value="${esc(pl.inicial)}"><div class="hint">Mínimo ${fm(F.inicialPct)} %. Incluye la separación.</div></div>
+          <div><label for="sFi">Fecha de la inicial</label><input id="sFi" data-ip="fechaInicial" type="date" value="${esc(pl.fechaInicial||pl.fecha)}"></div>
+          <div><label for="sN">Número de cuotas</label><select id="sN" data-ip="n">${nOpts.map(i=>`<option value="${i}" ${gN(pl.n)===i?"selected":""}>${i}${i===gN(F.maxCuotas)?" (máximo)":""}</option>`).join("")}</select></div>
+          <div><label for="sIn">Primera cuota</label><input id="sIn" data-ip="inicio" type="date" value="${esc(pl.inicio||gAddMeses(pl.fecha,1))}"></div>`
+        :`<div><label for="sFi">Fecha de pago del saldo</label><input id="sFi" data-ip="fechaInicial" type="date" value="${esc(pl.fechaInicial||pl.fecha)}"></div>`}</div>
+        <div id="iSim" style="margin-top:10px">${simResumen(l,p)}</div>`:`<p class="hint" style="margin:8px 0 0">Sin plan de pagos: este lote no aparecerá en POSEIDON (cobranzas).</p>`}
+      ${pagos?`<p class="mini" style="margin:8px 0 0">Ya tiene ${Object.keys(l.plan.pagos).length} pago(s) registrados en POSEIDON: se conservan al guardar.</p>`:""}
+      ${W.conPlan?`<div class="actions" style="margin-top:8px"><button type="button" class="btn sec sm" data-g="isimPdf">${conVenta&&l.plan?"Descargar cronograma (PDF)":"Descargar simulación (PDF)"}</button></div>`:""}</div>
+    <div class="inline"><button type="button" class="btn pri" data-g="isave" style="flex:1">Guardar${conVenta&&W.conPlan?" y enviar a cobranzas":""}</button><button type="button" class="btn sec" data-g="iclose">Cancelar</button></div></div>`;
+}
 document.addEventListener("click",e=>{ const b=e.target.closest("[data-g]"); if(!b||b.disabled||VIEW!=="tablero") return; const a=b.dataset.g, x=b.dataset.x;
   if(a==="atab"){ ATAB=x; ILOT=null; return keep(draw); }
   if(a==="ipid"){ IPID=x; IFILT="todos"; ILOT=null; return keep(draw); }
   if(a==="ifilt"){ IFILT=x; return keep(draw); }
-  if(a==="ilot"){ ILOT=x; IEST=GS.lots[x].estado; return keep(draw); }
-  if(a==="iclose"){ ILOT=null; return keep(draw); }
-  if(a==="iest"){ IEST=x; document.querySelectorAll(".estb").forEach(k=>k.setAttribute("aria-pressed",String(k.dataset.x===x))); return; }
-  if(a==="isave") return run(b,"Guardando…",async()=>{ const l=GS.lots[ILOT], as=$("iAs").value;
-    const r=await api("g_lote",{id:ILOT,cambios:{estado:IEST||l.estado,asesor:as}}); GS.lots[ILOT]={...l,...r.lote};
-    toast(`Lote ${l.codigo}: ${GAIA_ESTADO_TXT[GS.lots[ILOT].estado].toLowerCase()}${as?" · "+nombreAsesor(as):""}.`); ILOT=null; keep(draw); });
+  if(a==="ilot"){ ILOT=x; abrirLote(x); return keep(draw); }
+  if(a==="iclose"){ ILOT=null; ILW=null; return keep(draw); }
+  if(a==="iest"){ ILW.estado=x; if(x==="vendido"&&!ILW.fechaVenta) ILW.fechaVenta=gHoy(); if((x==="reservado"||x==="vendido")&&!GS.lots[ILOT].plan) ILW.conPlan=true; if(x==="disponible"||x==="bloqueado") ILW.conPlan=!!GS.lots[ILOT].plan; return keep(draw); }
+  if(a==="iplan"){ if(x==="no") ILW.conPlan=false; else { ILW.conPlan=true; ILW.plan.tipo=x; } return keep(draw); }
+  if(a==="isimPdf") return run(b,"Generando…",async()=>{ const l=GS.lots[ILOT], pl={...ILW.plan,precio:precioPlan(l)};
+    const sim=!(ILW.estado==="reservado"||ILW.estado==="vendido")||!l.plan||JSON.stringify(gCronograma(pl).rows.map(r=>[r.fecha,r.monto]))!==JSON.stringify(gCronograma(l.plan).rows.map(r=>[r.fecha,r.monto]));
+    const r=await api("g_cronogramaPdf",{id:ILOT,plan:pl,simulacion:sim}); descargar(r.base64,r.nombre); toast(sim?"Simulación descargada.":"Cronograma descargado."); });
+  if(a==="isave") return run(b,"Guardando…",async()=>{ const l=GS.lots[ILOT], W=ILW, est=W.estado, cambios={estado:est,asesor:W.asesor};
+    if(est==="vendido"){ const pv=gN(W.venta)||gN(l.lista); if(!pv) throw new Error("Escribe el precio de venta del lote.");
+      cambios.venta=pv; cambios.fechaVenta=W.fechaVenta||gHoy(); cambios.pagada=W.pagada; }
+    if(est==="reservado"||est==="vendido"){ cambios.cliente=String(W.cliente||"").trim();
+      if(W.conPlan){ if(!cambios.cliente) throw new Error("Escribe el nombre del cliente para su cronograma de pagos."); cambios.plan={...W.plan,precio:precioPlan(l)}; if(!gN(cambios.plan.precio)) throw new Error("El lote no tiene precio."); }
+      else if(l.plan) cambios.plan=null; }
+    else if(l.plan&&!(l.plan.pagos&&Object.keys(l.plan.pagos).length)) cambios.plan=null;
+    const r=await api("g_lote",{id:ILOT,cambios}); GS.lots[ILOT]={...l,...r.lote}; if(!r.lote.plan) delete GS.lots[ILOT].plan;
+    toast(`Lote ${l.codigo}: ${GAIA_ESTADO_TXT[GS.lots[ILOT].estado].toLowerCase()}${W.asesor?" · "+nombreAsesor(W.asesor):""}${cambios.plan?" · cronograma enviado a cobranzas":""}.`); ILOT=null; ILW=null; keep(draw); });
 });
+document.addEventListener("input",e=>{ if(VIEW!=="tablero"||!ILW) return; const t=e.target, d=t.dataset;
+  if(d.iw){ ILW[d.iw]=t.type==="checkbox"?t.checked:t.value; if(d.iw==="venta"){ const s=$("iSim"); if(s) s.innerHTML=simResumen(GS.lots[ILOT],GS.projects[GS.lots[ILOT].pid]); } return; }
+  if(d.ip){ ILW.plan[d.ip]=["separacion","inicial","n"].includes(d.ip)?gN(t.value):t.value;
+    if(d.ip==="fecha"&&ILW.plan.tipo!=="contado"&&t.value){ ILW.plan.fechaInicial=t.value; ILW.plan.inicio=gAddMeses(t.value,1); const fi=$("sFi"), fn=$("sIn"); if(fi) fi.value=t.value; if(fn) fn.value=ILW.plan.inicio; }
+    const s=$("iSim"); if(s) s.innerHTML=simResumen(GS.lots[ILOT],GS.projects[GS.lots[ILOT].pid]); }
+});
+document.addEventListener("change",e=>{ if(VIEW!=="tablero"||!ILW) return; const t=e.target; if(t.dataset.ip==="n"||t.dataset.iw==="asesor"){ if(t.dataset.ip==="n") ILW.plan.n=gN(t.value); else ILW.asesor=t.value; keep(draw); } });
 document.addEventListener("input",e=>{ if(VIEW==="tablero"&&e.target.id==="iBus"){ IBUS=e.target.value; const pos=e.target.selectionStart; draw(); const n=$("iBus"); if(n){ n.focus(); n.setSelectionRange(pos,pos); } } });
+
+/* ================= APOLLO · Reporte de ventas y comisiones (Excel y PDF) ================= */
+let RPID="", RALC="vendidos";
+function vReporte(){
+  head("apollo","GAIA · APOLLO","Reporte de ventas");
+  const S={projects:GS.projects,lots:GS.lots,users:GS.users,config:GS.config}, R=gReporte(S,{pid:RPID,alcance:RALC}), T=R.tot;
+  const ps=gProjList(GS).filter(p=>gLotsOf(GS,p.id).length);
+  const s=v=>mon(v,"PEN");
+  main(apolloTabs()+`
+    <div class="gtools" style="margin-top:14px">
+      <select id="rPid" aria-label="Proyecto" style="max-width:320px"><option value="">Todos los proyectos</option>${ps.map(p=>`<option value="${esc(p.id)}" ${p.id===RPID?"selected":""}>${esc(p.codigo)} · ${esc(p.nombre)}</option>`).join("")}</select>
+      <div class="seg" role="group" aria-label="Alcance"><button type="button" data-g="ralc" data-x="vendidos" aria-pressed="${RALC==="vendidos"}">Vendidos</button><button type="button" data-g="ralc" data-x="cartera" aria-pressed="${RALC==="cartera"}">Vendidos y reservados</button></div>
+    </div>
+    <div class="kpis" style="margin-top:4px">
+      <div class="kpi"><small>Ventas</small><b>${s(T.ventas)}</b><span>${T.lotes} lotes · ${fm(T.area)} m²</span></div>
+      <div class="kpi"><small>Ingreso de la empresa</small><b>${s(T.ingreso)}</b><span>antes de repartir</span></div>
+      <div class="kpi"><small>Comercial</small><b>${s(T.bolsa)}</b><span>asesores ${s(T.asesor)} · closer ${s(T.closer)}</span></div>
+      <div class="kpi hero"><small>Queda para la empresa</small><b>${s(T.empresa)}</b><span>${[T.captacion?"captación "+s(T.captacion):"",T.terceros?"terceros "+s(T.terceros):""].filter(Boolean).join(" · ")||"después de comisiones"}</span></div></div>
+    ${R.sinPrecio?`<div class="banner" style="margin-top:12px">${R.sinPrecio} lote(s) no tienen precio de venta y suman 0. Regístralo en <b>Inventario de lotes</b> tocando el lote.</div>`:""}
+    <div class="panel"><div class="inline" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><h3 style="margin:0">Exportar</h3>
+      <div class="inline" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn pri" data-g="rxlsx">Descargar Excel</button><button type="button" class="btn sec" data-g="rpdf">Descargar PDF</button></div></div>
+      <p class="hint" style="margin:8px 0 0">Se arma con los datos de este momento: cada vez que vendas un lote, cambies un precio o marques una comisión como pagada, el siguiente reporte ya lo incluye. El Excel trae fórmulas, así que si corriges un monto se recalculan los totales.</p></div>
+    <div class="panel"><h3>Por proyecto</h3><div class="tablebox"><table><thead><tr><th>Proyecto</th><th class="r">Lotes</th><th class="r">Ventas</th><th class="r">Ingreso</th><th class="r">Comercial</th><th class="r">Captación</th><th class="r">Terceros</th><th class="r">Empresa</th><th class="r">Por pagar</th></tr></thead><tbody>
+      ${R.byP.map(b=>{const t=b.t,m=b.pm; return `<tr><td><b>${esc(b.p.codigo)}</b> · ${esc(b.p.nombre)}</td><td class="r">${t.lotes}</td><td class="r">${mon(t.ventas,m)}</td><td class="r">${mon(t.ingreso,m)}</td><td class="r">${mon(t.bolsa,m)}</td><td class="r">${mon(t.captacion,m)}</td><td class="r">${mon(t.terceros,m)}</td><td class="r"><b>${mon(t.empresa,m)}</b></td><td class="r">${mon(t.porPagar,m)}</td></tr>`;}).join("")||`<tr><td colspan="9" class="mini">No hay lotes ${RALC==="cartera"?"vendidos ni reservados":"vendidos"} todavía.</td></tr>`}
+      ${R.byP.length>1?`<tr class="tot"><td>Total en soles</td><td class="r">${T.lotes}</td><td class="r">${s(T.ventas)}</td><td class="r">${s(T.ingreso)}</td><td class="r">${s(T.bolsa)}</td><td class="r">${s(T.captacion)}</td><td class="r">${s(T.terceros)}</td><td class="r"><b>${s(T.empresa)}</b></td><td class="r">${s(T.porPagar)}</td></tr>`:""}
+    </tbody></table></div></div>
+    <div class="panel"><h3>Comisiones por asesor</h3><div class="tablebox"><table><thead><tr><th>Asesor</th><th class="r">Lotes</th><th class="r">Comisión</th><th class="r">Pagado</th><th class="r">Por pagar</th></tr></thead><tbody>
+      ${R.asesores.map(a=>`<tr><td><b>${esc(a.nombre)}</b>${a.closer?` <span class="mini">closer</span>`:""}</td><td class="r">${a.lotes}</td><td class="r">${s(a.comision)}</td><td class="r">${s(a.pagado)}</td><td class="r"><b>${s(a.porPagar)}</b></td></tr>`).join("")||`<tr><td colspan="5" class="mini">Sin comisiones.</td></tr>`}
+    </tbody></table></div></div>`);
+}
+document.addEventListener("change",e=>{ if(VIEW==="tablero"&&e.target.id==="rPid"){ RPID=e.target.value; keep(draw); } });
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-g]"); if(!b||b.disabled||VIEW!=="tablero") return; const a=b.dataset.g;
+  if(a==="ralc"){ RALC=b.dataset.x; return keep(draw); }
+  if(a==="rpdf") return run(b,"Generando PDF…",async()=>{ const r=await api("g_reportePdf",{filtro:{pid:RPID,alcance:RALC}}); descargar(r.base64,r.nombre); toast("Reporte descargado y guardado en Drive."); });
+  if(a==="rxlsx") return run(b,"Armando Excel…",async()=>{ await excelReporte(); });
+});
+
+/* ---------- Excel (.xlsx) armado en el navegador ---------- */
+function cargarJSZip(){
+  if(window.JSZip) return Promise.resolve(window.JSZip);
+  return new Promise((ok,ko)=>{ const s=document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+    s.onload=()=>ok(window.JSZip); s.onerror=()=>ko(new Error("No se pudo cargar el generador de Excel. Revisa tu conexión.")); document.head.appendChild(s); });
+}
+const XS={def:0,title:1,head:2,money:3,int:4,totL:5,totM:6,muted:7,bold:8,big:9,totI:10,dec:11};
+function xEsc(v){ return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,""); }
+function xCol(i){ let s=""; i++; while(i>0){ const m=(i-1)%26; s=String.fromCharCode(65+m)+s; i=Math.floor((i-1)/26); } return s; }
+/** rows: arreglo de filas; cada celda: null | valor | {v, f, s}. */
+function xSheet(rows,o){ o=o||{};
+  const data=rows.map((r,ri)=>`<row r="${ri+1}"${o.alto&&o.alto[ri]?` ht="${o.alto[ri]}" customHeight="1"`:""}>${(r||[]).map((c,ci)=>{
+    if(c===null||c===undefined||c==="") return "";
+    const C=(typeof c==="object")?c:{v:c}, ref=xCol(ci)+(ri+1), st=C.s?` s="${C.s}"`:"";
+    if(C.f!==undefined) return `<c r="${ref}"${st}><f>${xEsc(C.f)}</f>${typeof C.v==="number"&&isFinite(C.v)?`<v>${C.v}</v>`:""}</c>`;
+    if(typeof C.v==="number") return `<c r="${ref}"${st}><v>${isFinite(C.v)?C.v:0}</v></c>`;
+    if(C.v===null||C.v===undefined||C.v==="") return C.s?`<c r="${ref}"${st}/>`:"";
+    return `<c r="${ref}"${st} t="inlineStr"><is><t xml:space="preserve">${xEsc(C.v)}</t></is></c>`; }).join("")}</row>`).join("");
+  const cols=o.anchos?`<cols>${o.anchos.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("")}</cols>`:"";
+  const pane=o.fijar?`<sheetViews><sheetView workbookViewId="0"><pane ySplit="${o.fijar}" topLeftCell="A${o.fijar+1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`:`<sheetViews><sheetView workbookViewId="0"/></sheetViews>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${pane}<sheetFormatPr defaultRowHeight="15"/>${cols}<sheetData>${data}</sheetData>${o.filtro?`<autoFilter ref="${o.filtro}"/>`:""}${o.merge?`<mergeCells count="${o.merge.length}">${o.merge.map(m=>`<mergeCell ref="${m}"/>`).join("")}</mergeCells>`:""}<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup orientation="landscape" paperSize="9" fitToWidth="1" fitToHeight="0"/></worksheet>`;
+}
+function xStyles(){
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<fonts count="5"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="14"/><color rgb="FF1F5F3F"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><i/><sz val="9"/><color rgb="FF666666"/><name val="Arial"/></font></fonts>
+<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F5F3F"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDCEBDD"/><bgColor indexed="64"/></patternFill></fill></fills>
+<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFB4B4B4"/></left><right style="thin"><color rgb="FFB4B4B4"/></right><top style="thin"><color rgb="FFB4B4B4"/></top><bottom style="thin"><color rgb="FFB4B4B4"/></bottom><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="12">
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf>
+<xf numFmtId="4" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
+<xf numFmtId="3" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
+<xf numFmtId="0" fontId="3" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>
+<xf numFmtId="4" fontId="3" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>
+<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"/>
+<xf numFmtId="4" fontId="3" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>
+<xf numFmtId="3" fontId="3" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>
+<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>
+</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+}
+async function xlsxBlob(hojas){
+  const Z=await cargarJSZip(), z=new Z();
+  z.file("[Content_Types].xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${hojas.map((h,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>`);
+  z.file("_rels/.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+  z.file("xl/workbook.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${hojas.map((h,i)=>`<sheet name="${xEsc(h.nombre)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")}</sheets>${hojas.some(h=>h.filtro)?`<definedNames>${hojas.map((h,i)=>h.filtro?`<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${xEsc(h.nombre)}'!${h.filtro.replace(/([A-Z]+)(\d+)/g,"$$$1$$$2")}</definedName>`:"").join("")}</definedNames>`:""}<calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`);
+  z.file("xl/_rels/workbook.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${hojas.map((h,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")}<Relationship Id="rId${hojas.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+  z.file("xl/styles.xml",xStyles());
+  hojas.forEach((h,i)=>z.file(`xl/worksheets/sheet${i+1}.xml`,xSheet(h.rows,h)));
+  return z.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",compression:"DEFLATE"});
+}
+function hoyTxt(){ const d=new Date(), p=n=>String(n).padStart(2,"0"); return {iso:`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`, txt:`${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`}; }
+function reporteHojas(R,S){
+  const H=t=>({v:t,s:XS.head}), M=v=>({v:Math.round((v||0)*100)/100,s:XS.money}), I=v=>({v:v||0,s:XS.int}), Tx=v=>({v:v===undefined||v===null?"":String(v),s:XS.dec});
+  const h=hoyTxt(), uno=R.f.pid?S.projects[R.f.pid]:null, T=R.tot, r2=v=>Math.round((v||0)*100)/100;
+  /* --- Detalle --- */
+  const dh=["Código","Proyecto","Lote","Área m²","Estado","Fecha venta","Cliente","Asesor","Moneda","Precio de venta","Base / costo","Ingreso empresa","Comisión asesor","Closer","Bolsa comercial","Captación","Terceros","Queda empresa","Comisión pagada","Por pagar"];
+  const d0=3, det=[[{v:"Detalle de lotes · "+R.alcanceTxt,s:XS.title}],[{v:"Las columnas en verde se calculan solas: si corriges un monto, se actualizan la bolsa, lo que queda a la empresa y el resumen.",s:XS.muted}],dh.map(H)];
+  R.rows.forEach((r,i)=>{ const n=d0+i+1;
+    det.push([Tx(r.p.codigo),Tx(r.p.nombre),Tx(r.l.codigo),{v:gN(r.l.m2),s:XS.money},Tx(GAIA_ESTADO_TXT[r.estado]),Tx(r.l.fechaVenta||""),Tx(r.l.cliente||""),Tx(r.asesorNombre),Tx(r.pm),
+      M(r.ventas),M(r.x.base),M(r.ingreso),M(r.asesor),M(r.closer),{f:`M${n}+N${n}`,v:r2(r.asesor)+r2(r.closer),s:XS.big},M(r.captacion),M(r.terceros),
+      {f:`L${n}-O${n}-P${n}-Q${n}`,v:r2(r.ingreso)-(r2(r.asesor)+r2(r.closer))-r2(r.captacion)-r2(r.terceros),s:XS.big},Tx(r.pagada?"Sí":"No"),{f:`IF(S${n}="Sí",0,O${n})`,v:r.pagada?0:r2(r.asesor)+r2(r.closer),s:XS.big}]); });
+  const dLast=d0+R.rows.length, rng=c=>`Detalle!$${c}$${d0+1}:$${c}$${Math.max(dLast,d0+1)}`;
+  /* --- Resumen --- */
+  const res=[[{v:"REPORTE DE VENTAS Y COMISIONES",s:XS.title}],[{v:"Grupo TuTierra E.I.R.L. · GAIA ERP inmobiliario",s:XS.muted}],[],
+    [{v:"Alcance",s:XS.bold},Tx(uno?uno.codigo+" · "+uno.nombre:"Todos los proyectos")],[{v:"Lotes",s:XS.bold},Tx(R.alcanceTxt)],[{v:"Generado",s:XS.bold},Tx(h.txt)],
+    [{v:"Tipo de cambio (S/ por US$)",s:XS.bold},{v:R.tc,s:XS.money}],[]];
+  const rh=["Código","Proyecto","Moneda","Lotes","Ventas","Ingreso empresa","Comisión asesores","Closer","Bolsa comercial","Captación","Terceros","Queda empresa","Por pagar","× a soles"];
+  res.push(rh.map(H)); const r0=res.length;
+  const col={E:"J",F:"L",G:"M",H:"N",I:"O",J:"P",K:"Q",L:"R",M:"T"};
+  R.byP.forEach((b,i)=>{ const n=r0+i+1, t=b.t, sum=c=>`SUMIFS(${rng(c)},${rng("A")},$A${n})`;
+    res.push([Tx(b.p.codigo),Tx(b.p.nombre),Tx(b.pm),{f:`COUNTIFS(${rng("A")},$A${n})`,v:t.lotes,s:XS.int},
+      {f:sum("J"),v:r2(t.ventas),s:XS.money},{f:sum("L"),v:r2(t.ingreso),s:XS.money},{f:sum("M"),v:r2(t.asesor),s:XS.money},{f:sum("N"),v:r2(t.closer),s:XS.money},
+      {f:sum("O"),v:r2(t.bolsa),s:XS.money},{f:sum("P"),v:r2(t.captacion),s:XS.money},{f:sum("Q"),v:r2(t.terceros),s:XS.money},{f:sum("R"),v:r2(t.empresa),s:XS.big},{f:sum("T"),v:r2(t.porPagar),s:XS.money},
+      {f:`IF(C${n}="USD",$B$7,1)`,v:b.pm==="USD"?R.tc:1,s:XS.money}]); });
+  const rl=r0+R.byP.length, tr=rl+1, tot=c=>`SUMPRODUCT(${c}${r0+1}:${c}${Math.max(rl,r0+1)},$N$${r0+1}:$N$${Math.max(rl,r0+1)})`;
+  res.push([{v:"TOTAL EN SOLES",s:XS.totL},{v:"",s:XS.totL},{v:"S/",s:XS.totL},{f:`SUM(D${r0+1}:D${Math.max(rl,r0+1)})`,v:T.lotes,s:XS.totI},
+    ...["E","F","G","H","I","J","K","L","M"].map(c=>({f:tot(c),v:r2({E:T.ventas,F:T.ingreso,G:T.asesor,H:T.closer,I:T.bolsa,J:T.captacion,K:T.terceros,L:T.empresa,M:T.porPagar}[c]),s:XS.totM})),{v:"",s:XS.totL}]);
+  res.push([],[{v:"Cómo leerlo",s:XS.bold}],[{v:"Ingreso empresa: lo que gana TuTierra por lote según el modelo de HADES (comisión, sobreprecio o precio menos costo).",s:XS.muted}],
+    [{v:"Bolsa comercial = comisión de asesores + closer. Queda empresa = ingreso − bolsa − captación − terceros.",s:XS.muted}],
+    [{v:"Por pagar: comisiones de lotes que aún no marcaste como pagadas en APOLLO. Cambia el tipo de cambio en B7 y los totales en soles se recalculan.",s:XS.muted}]);
+  void tr;
+  /* --- Comisiones --- */
+  const com=[[{v:"Comisiones por asesor (S/)",s:XS.title}],[{v:R.alcanceTxt+" · generado "+h.txt,s:XS.muted}],["Asesor","Rol","Lotes","Vendidos","Comisión total","Pagado","Por pagar"].map(H)];
+  R.asesores.forEach(a=>com.push([Tx(a.nombre),Tx(a.closer?"Closer":"Asesor"),I(a.lotes),I(a.vendidos),M(a.comision),M(a.pagado),{f:`E${com.length+1}-F${com.length+1}`,v:r2(a.comision)-r2(a.pagado),s:XS.big}]));
+  const cl=com.length; com.push([{v:"TOTAL",s:XS.totL},{v:"",s:XS.totL},{f:`SUM(C4:C${Math.max(cl,4)})`,v:R.asesores.reduce((s,a)=>s+a.lotes,0),s:XS.totI},{f:`SUM(D4:D${Math.max(cl,4)})`,v:R.asesores.reduce((s,a)=>s+a.vendidos,0),s:XS.totI},
+    ...["E","F","G"].map(c=>({f:`SUM(${c}4:${c}${Math.max(cl,4)})`,v:r2({E:T.asesor+T.closer,F:T.pagado,G:T.porPagar}[c]),s:XS.totM}))]);
+  /* --- Inventario --- */
+  const inv=[[{v:"Inventario de lotes",s:XS.title}],[{v:"Estado al "+h.txt,s:XS.muted}],["Código","Proyecto","Moneda","Total","Disponibles","Reservados","Vendidos","Bloqueados","Valor disponible","Valor reservado","Valor por vender","Vendido"].map(H)];
+  R.inv.filter(i=>i.total).forEach(i=>{ const n=inv.length+1; inv.push([Tx(i.p.codigo),Tx(i.p.nombre),Tx(i.p.moneda||"PEN"),I(i.total),I(i.disponible),I(i.reservado),I(i.vendido),I(i.bloqueado),M(i.valDisp),M(i.valRes),{f:`I${n}+J${n}`,v:r2(i.valDisp)+r2(i.valRes),s:XS.big},M(i.valVend)]); });
+  inv.push([],[{v:"Los valores están en la moneda de cada proyecto.",s:XS.muted}]);
+  return [
+    {nombre:"Resumen",rows:res,anchos:[30,30,9,8,15,15,15,13,15,13,13,15,13,9]},
+    {nombre:"Detalle",rows:det,anchos:[9,24,8,10,11,12,22,20,8,14,13,14,14,12,14,12,12,14,10,13],fijar:3,filtro:`A3:T${Math.max(dLast,3)}`},
+    {nombre:"Comisiones",rows:com,anchos:[28,10,8,10,15,15,15],fijar:3},
+    {nombre:"Inventario",rows:inv,anchos:[9,26,9,8,11,11,10,11,16,16,16,16],fijar:3}];
+}
+async function excelReporte(){
+  const S={projects:GS.projects,lots:GS.lots,users:GS.users,config:GS.config}, R=gReporte(S,{pid:RPID,alcance:RALC});
+  const blob=await xlsxBlob(reporteHojas(R,S)), p=RPID?GS.projects[RPID]:null;
+  const name=`Reporte de ventas y comisiones - ${p?p.codigo+" "+p.nombre:"Todos los proyectos"} - ${hoyTxt().iso}.xlsx`.normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^\w.\- ]+/g,"").replace(/\s+/g," ").trim();
+  const url=URL.createObjectURL(blob), a=document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),60000);
+  toast("Excel descargado.");
+}
+
+/* ================= GAIA · flujo completo: viabilidad, aprobación, comercialización, cobranzas y registro ================= */
+function SXH(){ const S=SX(); S.hades=GS.hades; return S; }
+const SEMC={viable:"fav",observar:"att",no:"des",vacio:"info"};
+function semaforo(v,big){ return `<span class="pill ${SEMC[v.estado]}" style="${big?"font-size:14px;padding:6px 14px":""}">● ${GAIA_VIAB_TXT[v.estado]}</span>`; }
+function alertList(v){ if(!v.alertas.length) return `<p class="mini" style="margin:8px 0 0">Sin alertas: cumple los criterios de HADES.</p>`;
+  return `<ul class="alerts">${v.alertas.map(a=>`<li class="al-${a.nivel}">${esc(a.txt)}</li>`).join("")}</ul>`; }
+function aprobTxt(p){ const a=p.aprob||{};
+  if(p.estado==="lanzado") return `<span class="pill fav">En comercialización</span>`;
+  return a.estado==="aprobado"?`<span class="pill fav">Aprobado</span>`:a.estado==="pendiente"?`<span class="pill info">Esperando tu aprobación</span>`:a.estado==="rechazado"?`<span class="pill des">Observado</span>`:`<span class="pill att">Sin enviar</span>`; }
+/** Panel compacto de DEMETER: alerta al instante mientras cambias precios, bases o reparto. */
+function viabMini(){
+  if(!DP) return ""; const v=gViab(SXH(),DP.id);
+  return `<div class="panel viab viab-${v.estado}"><div class="inline" style="justify-content:space-between;gap:8px;flex-wrap:wrap"><h3 style="margin:0">¿Es viable?</h3><span class="inline" style="gap:6px">${semaforo(v)}${aprobTxt(DP)}</span></div>
+    ${alertList(v)}
+    ${v.estado!=="vacio"?`<p class="mini" style="margin:8px 0 0">Ingreso bruto ${fm(v.ingPct,1)} % de las ventas (mínimo ${fm(v.V.ingresoMin,1)} %) · a la empresa le queda ${fm(v.emp,1)} % · utilidad estimada <b>${mon(v.util,v.pm)}</b></p>`:""}</div>`;
+}
+/* ---------- Financiamiento directo del proyecto (DEMETER) ---------- */
+function finPanel(p){
+  const F=gFinanc(p,GS), M=gModelos(GS)[p.modelo]||{}, MF=gMerge(GAIA_FIN_DEF,M.financ), igual=["inicialPct","separacion","maxCuotas","tea"].every(k=>gN(F[k])===gN(MF[k])), cur=curS(p.moneda||"PEN");
+  const inp=(k,l,suf,hint)=>`<div><label for="gfin-${k}">${l}</label><div class="pct"><input id="gfin-${k}" data-gfin="${k}" data-num="1" inputmode="decimal" value="${esc(F[k])}">${suf?`<span>${suf}</span>`:""}</div>${hint?`<div class="hint">${hint}</div>`:""}</div>`;
+  return `<div class="panel"><div class="inline" style="justify-content:space-between"><h3>4. Financiamiento directo</h3>${igual?`<span class="pill fav">Igual a HADES</span>`:`<span class="pill att">Ajustado para este proyecto</span>`}</div>
+    <p class="hint" style="margin:0 0 10px">Condiciones que APOLLO usa al simular cuotas de un lote. Parten del modelo "${esc(M.n||p.modelo||"")}" en HADES.</p>
+    <div class="fgrid">${inp("inicialPct","Inicial mínima","% del precio")}${inp("separacion","Separación",cur,"Se descuenta de la inicial.")}${inp("maxCuotas","Cuotas máximas","meses")}${inp("tea","Interés (TEA)","%","0 = sin interés.")}</div>
+    ${igual?"":`<button type="button" class="btn sec sm" data-g="finReset" style="margin-top:10px">Volver a las condiciones de HADES</button>`}</div>`;
+}
+
+/* ---------- Paso 4: viabilidad y aprobación ---------- */
+let VNOTA="";
+function vViab(){
+  head("demeter","GAIA · DEMETER","Viabilidad y aprobación");
+  if(!DP){ main(`<div class="empty" style="margin-top:14px">Aún no hay proyectos.</div>`); return; }
+  const p=DP, ps=gProjList(GS), S=SXH(), v=gViab(S,p.id), t=v.t, m=p.moneda||"PEN", a=p.aprob||{}, L=p.estado==="lanzado", admin=PERFIL.rol==="admin", F=gFinanc(p,GS);
+  const kpi=(k,val,sub,cls)=>`<div class="kpi ${cls||""}"><small>${k}</small><b>${val}</b><span>${sub||""}</span></div>`;
+  const hist=[a.enviado?`Enviado a aprobación el ${esc(a.enviado)}${a.enviadoPor?" por "+esc(a.enviadoPor):""}.`:"",a.fecha&&(a.estado==="aprobado"||a.estado==="rechazado")?`${a.estado==="aprobado"?"Aprobado":"Observado"} el ${esc(a.fecha)}${a.por?" por "+esc(a.por):""}.`:"",a.nota?`Comentario: “${esc(a.nota)}”`:""].filter(Boolean);
+  let acc="";
+  if(!L){
+    if(a.estado==="aprobado") acc=`<div class="banner ok"><b>Aprobado.</b> Ya puedes comercializarlo: asigna asesores y lánzalo.</div><div class="actions"><button type="button" class="btn pri" data-g="goCom" data-x="${esc(p.id)}">Pasar a comercialización →</button>${admin?`<button type="button" class="btn sec" data-g="aprob" data-x="reabrir">Quitar aprobación</button>`:""}</div>`;
+    else {
+      const puedeEnviar=can("demeter","editar")&&a.estado!=="pendiente";
+      acc=`${a.estado==="pendiente"?`<div class="banner"><b>Esperando aprobación.</b> ${admin?"Revisa los números y decide.":"El administrador debe aprobarlo para comercializarlo."}</div>`:a.estado==="rechazado"?`<div class="banner"><b>Observado.</b> Ajusta el modelo o la cabida y vuelve a enviarlo.</div>`:""}
+        ${(puedeEnviar||admin)?`<div style="margin-top:12px"><label for="vNota">Comentario ${admin?"(opcional, queda en el informe)":"para gerencia (opcional)"}</label><textarea id="vNota" data-vnota="1" placeholder="${admin?"Motivo de la decisión, condiciones…":"Contexto para la aprobación…"}">${esc(VNOTA)}</textarea></div>`:""}
+        <div class="actions">${puedeEnviar&&!admin?`<button type="button" class="btn pri" data-g="aprob" data-x="enviar">Enviar a aprobación</button>`:""}
+          ${admin?`<button type="button" class="btn pri" data-g="aprob" data-x="aprobar">Aprobar proyecto</button><button type="button" class="btn sec" data-g="aprob" data-x="rechazar">Observar / rechazar</button>`:""}
+          ${puedeEnviar&&admin&&a.estado!=="pendiente"?`<button type="button" class="btn sec" data-g="aprob" data-x="enviar">Marcar como enviado</button>`:""}</div>`;
+    }
+  } else acc=`<div class="banner ok"><b>En comercialización${p.lanzado?" desde el "+esc(p.lanzado):""}.</b></div>`;
+  main(`<div class="gtools"><label for="cabSel" class="mini" style="margin:0">Proyecto</label><select id="cabSel" data-gsel="1" style="width:auto;max-width:100%">${ps.map(x=>`<option value="${esc(x.id)}" ${x.id===p.id?"selected":""}>${esc(x.codigo)} · ${esc(x.nombre)}${x.estado==="lanzado"?"":" (borrador)"}</option>`).join("")}</select><span class="grow"></span>${aprobTxt(p)}</div>
+    ${pasos(p)}
+    <div class="panel viab viab-${v.estado}"><div class="inline" style="justify-content:space-between;gap:8px;flex-wrap:wrap"><h3 style="margin:0">Resultado</h3>${semaforo(v,1)}</div>
+      <p style="margin:8px 0 0">${{viable:"Los números cumplen los criterios de HADES: el proyecto deja una utilidad saludable para la empresa.",observar:"El proyecto gana, pero hay puntos a revisar antes de aprobarlo.",no:"Con los números actuales el proyecto no conviene a la empresa.",vacio:"Falta la cabida: carga lotes y precios en DEMETER."}[v.estado]}</p>
+      ${alertList(v)}</div>
+    ${v.estado!=="vacio"?`<div class="kpis">${kpi("Ventas proyectadas",mon(t.ventas,m),`${t.lotes} lotes · ${fm(t.area)} m²`)}${kpi("Ingreso bruto",mon(t.ingreso,m),`${fm(v.ingPct,1)} % de las ventas (mín. ${fm(v.V.ingresoMin,1)} %)`)}
+      ${kpi("Queda para la empresa",mon(t.empresa,m),`${fm(v.emp,1)} % del ingreso bruto`)}${kpi("Utilidad estimada",mon(v.util,m),t.costos?`después de ${mon(t.costos,m)} de costos`:"sin costos registrados","hero")}</div>
+    <div class="two">
+      <div class="panel"><h3>Escenarios</h3><div class="tablebox"><table><thead><tr><th>Si…</th><th class="r">Utilidad</th></tr></thead><tbody>${v.esc.map(e=>`<tr><td>${esc(e.n)}</td><td class="r ${e.util<=0?"neg":""}"><b>${mon(e.util,m)}</b></td></tr>`).join("")}</tbody></table></div>
+        <p class="hint">Así ve gerencia cuánto aguanta el proyecto si bajan los precios o no se vende todo.</p></div>
+      <div class="panel"><h3>Cómo se comercializa</h3><dl class="kvl">
+        <dt>Modelo</dt><dd><b>${esc((gModelos(GS)[p.modelo]||{}).n||p.modelo||"")}</b></dd>
+        <dt>Ingreso de la empresa</dt><dd>${esc(ingresoTxt(p.pricing))}</dd>
+        <dt>Bolsa comercial</dt><dd>${fm((p.reparto||{}).comercial,2)} %</dd>
+        <dt>Financiamiento</dt><dd>inicial ${fm(F.inicialPct)} % · hasta ${fm(F.maxCuotas)} cuotas · ${gN(F.tea)?"TEA "+fm(F.tea,2)+" %":"sin interés"}</dd></dl>
+        <div class="actions"><button type="button" class="btn sec sm" data-g="goHades" data-x="${esc(p.id)}">Cambiar modelo</button><button type="button" class="btn sec sm" data-g="goCab" data-x="${esc(p.id)}">Cambiar cabida</button></div></div></div>`:""}
+    <div class="panel"><div class="inline" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h3 style="margin:0">Aprobación de gerencia</h3><button type="button" class="btn sec sm" data-g="viabPdf">Descargar informe para gerencia (PDF)</button></div>
+      ${hist.length?`<p class="mini" style="margin:10px 0 0">${hist.join("<br>")}</p>`:""}
+      ${acc}
+      <p class="hint">${admin?"Solo tú (administrador) puedes aprobar. Si después cambia el modelo o la cabida, la aprobación se quita sola y hay que volver a revisarlo.":"Solo el administrador puede aprobar. Si cambias el modelo o la cabida después, tendrá que aprobarlo otra vez."}</p></div>`);
+}
+
+/* ---------- Paso 5: comercialización (asesores y lanzamiento) ---------- */
+function asesoresDe(){ const c=GS.config.closer||{}; const us=GS.users.filter(u=>u.rol==="asesor").map(u=>({k:u.usuario,n:u.nombre,activo:u.activo}));
+  return (c.key?[{k:c.key,n:(c.name||c.key)+" (closer)",activo:true}]:[]).concat(us); }
+function vComercial(){
+  head("apollo","GAIA · APOLLO","Comercialización");
+  if(!DP){ main(`<div class="empty" style="margin-top:14px">Aún no hay proyectos.</div>`); return; }
+  const p=DP, ps=gProjList(GS), L=p.estado==="lanzado", a=p.aprob||{}, m=p.moneda||"PEN", cfg=GS.config, sel=p.asesores||[], ed=can("apollo","editar");
+  const ls=gLotsOf(GS,p.id).filter(l=>l.estado!=="bloqueado"), libres=ls.filter(l=>l.estado==="disponible"&&!l.asesor), t=gCabida(SXH(),p.id);
+  const AS=asesoresDe(), filas=AS.filter(x=>sel.includes(x.k)||ls.some(l=>l.asesor===x.k)).map(x=>{
+    const mios=ls.filter(l=>l.asesor===x.k), gana=mios.reduce((s,l)=>s+gSplit(p,l,cfg).asesor+(x.k===(cfg.closer||{}).key?gSplit(p,l,cfg).closer:0),0);
+    const pot=libres.length?libres.reduce((s,l)=>s+gSplit(p,{...l,asesor:x.k},cfg)[x.k===(cfg.closer||{}).key?"closer":"asesor"],0)/libres.length:0;
+    return {x,mios,vend:mios.filter(l=>l.estado==="vendido").length,gana,pot,asig:sel.includes(x.k)}; });
+  main(`<div class="gtools"><label for="cabSel" class="mini" style="margin:0">Proyecto</label><select id="cabSel" data-gsel="1" style="width:auto;max-width:100%">${ps.map(x=>`<option value="${esc(x.id)}" ${x.id===p.id?"selected":""}>${esc(x.codigo)} · ${esc(x.nombre)}${x.estado==="lanzado"?"":" (borrador)"}</option>`).join("")}</select><span class="grow"></span>${aprobTxt(p)}</div>
+    ${pasos(p)}
+    ${L?`<div class="banner ok"><b>En comercialización${p.lanzado?" desde el "+esc(p.lanzado):""}.</b> Está en el catálogo público y en las wallets de sus asesores.</div>`
+      :a.estado==="aprobado"?`<div class="banner ok"><b>Aprobado.</b> Asigna a los asesores y lanza la comercialización.</div>`
+      :`<div class="banner"><b>Aún no está aprobado.</b> Antes de comercializarlo, revisa su viabilidad y apruébalo. <button type="button" class="btn sec sm" data-g="goViab" data-x="${esc(p.id)}" style="margin-left:6px">Ir a viabilidad</button></div>`}
+    <div class="kpis">
+      <div class="kpi"><small>Ventas proyectadas</small><b>${mon(t.ventas,m)}</b><span>${t.lotes} lotes</span></div>
+      <div class="kpi hero"><small>Ingresa a la empresa</small><b>${mon(t.ingreso,m)}</b><span>queda ${mon(t.empresa,m)} después del reparto</span></div>
+      <div class="kpi"><small>Para los asesores</small><b>S/ ${fm(t.asesores)}</b><span>closer S/ ${fm(t.closer)}</span></div>
+      <div class="kpi"><small>Lotes libres</small><b>${libres.length}</b><span>disponibles sin asesor</span></div></div>
+    <div class="panel"><h3>Asesores del proyecto</h3><p class="hint" style="margin:0 0 10px">Tócalos para asignarlos o quitarlos. Los asignados ven el proyecto en su wallet con lo que pueden ganar. Para darle un lote específico a un asesor, usa el inventario.</p>
+      <div class="filters" role="group" aria-label="Asesores">${AS.map(x=>`<button type="button" class="chip" data-g="casig" data-x="${esc(x.k)}" aria-pressed="${sel.includes(x.k)}" ${ed?"":"disabled"}>${esc(x.n)}${x.activo?"":" · inactivo"}</button>`).join("")||`<span class="hint">Crea asesores en Ajustes.</span>`}</div>
+      ${filas.length?`<div class="tablebox" style="margin-top:12px"><table><thead><tr><th>Asesor</th><th class="r">Sus lotes</th><th class="r">Vendidos</th><th class="r">Ganaría con sus lotes</th><th class="r">Por cada lote libre</th></tr></thead><tbody>
+        ${filas.map(f=>`<tr><td><b>${esc(f.x.n)}</b>${f.asig?"":` <span class="mini">· no asignado al proyecto</span>`}</td><td class="r">${f.mios.length}</td><td class="r">${f.vend}</td><td class="r"><b>S/ ${fm(f.gana)}</b></td><td class="r">${libres.length?"S/ "+fm(f.pot):"—"}</td></tr>`).join("")}</tbody></table></div>`:""}
+      <div class="actions"><button type="button" class="btn sec sm" data-g="goInv" data-x="${esc(p.id)}">Asignar lotes uno por uno en el inventario →</button></div></div>
+    <div class="actions">${L?(can("demeter","editar")?`<button type="button" class="btn sec" data-g="borrador">Volver a borrador</button>`:""):a.estado==="aprobado"&&can("demeter","editar")?`<button type="button" class="btn pri" data-g="lanzar">Lanzar comercialización</button>`:""}</div>`);
+}
+
+/* ---------- ELEUTHIA: registrar predio dentro de GAIA ---------- */
+function vRegistro(){
+  head("eleuthia","GAIA · ELEUTHIA","Registrar predio");
+  const src=`registro.html?modo=completo&embed=1&por=${encodeURIComponent(PERFIL.nombre||"")}`;
+  main(`<div class="gtools" style="margin-top:14px"><button type="button" class="btn sec sm" data-g="nav" data-x="predios">← Predios</button><span class="grow"></span>
+      <button type="button" class="btn sec sm" data-g="copy" data-x="${esc(new URL("registro.html?modo=invitado",location.href).href)}">Copiar enlace para invitados</button></div>
+    <iframe id="regFrame" src="${src}" title="Ficha de registro de predio" style="width:100%;min-height:calc(100vh - 220px);border:1px solid var(--line);border-radius:var(--r);background:var(--card);margin-top:10px"></iframe>
+    <p class="hint">Personas de fuera pueden registrar un predio como invitados con el enlace de arriba: solo se les piden los datos básicos.</p>`);
+}
+addEventListener("message",e=>{ const d=e.data||{}; if(d.gaia==="ficha"&&d.codigo){ FICHAS=null; toast(`Predio ${d.codigo} registrado. Ya está en ELEUTHIA para evaluarlo en MINERVA.`); }
+  if(d.gaia==="alto"&&$("regFrame")) $("regFrame").style.height=Math.max(500,Number(d.h)||0)+"px"; });
+
+/* ---------- POSEIDON: cobranzas ---------- */
+let CPID="", CEST="pend", CMES="", CBUS="", CPAY=null, CLOT=null;
+const CEST_TXT={pend:"Por cobrar",venc:"Vencidas",pag:"Pagadas",todas:"Todas"};
+function cuotaPill(e){ return `<span class="pill ${{pagada:"fav",vencida:"des",pendiente:"info",parcial:"att"}[e]}">${GAIA_CUOTA_TXT[e]}</span>`; }
+function vCobranzas(){
+  head("poseidon","GAIA · POSEIDON","Cobranzas");
+  const C=gCobranzas(GS,{pid:CPID}), k=C.k, q=CBUS.trim().toLowerCase(), ed=can("poseidon","editar");
+  const rows=C.rows.filter(x=>(CEST==="todas"||(CEST==="pag"?x.estado==="pagada":CEST==="venc"?(x.estado==="vencida"||(x.estado==="parcial"&&x.r.fecha<C.hoy)):x.estado!=="pagada"))
+    &&(!CMES||x.r.fecha.slice(0,7)===CMES)&&(!q||[x.cliente,x.l.codigo,x.p.codigo,x.p.nombre].join(" ").toLowerCase().includes(q)));
+  const ps=gProjList(GS).filter(p=>gLotsOf(GS,p.id).some(l=>l.plan));
+  const s=v=>"S/ "+fm(v);
+  main(`<div class="kpis">
+      <div class="kpi ${k.vencido>0?"hero":""}"><small>Vencido</small><b class="${k.vencido>0?"neg":""}">${s(k.vencido)}</b><span>${k.nVenc} cuota${k.nVenc===1?"":"s"} atrasada${k.nVenc===1?"":"s"}</span></div>
+      <div class="kpi"><small>Por cobrar este mes</small><b>${s(k.mes)}</b><span>${new Date().toLocaleDateString("es-PE",{month:"long",year:"numeric"})}</span></div>
+      <div class="kpi"><small>Próximos 30 días</small><b>${s(k.prox30)}</b><span>saldo total ${s(k.pendiente)}</span></div>
+      <div class="kpi"><small>Cobrado</small><b>${s(k.cobrado)}</b><span>${k.nClientes} cliente${k.nClientes===1?"":"s"} con plan</span></div></div>
+    <div class="gtools" style="margin-top:14px">
+      <select id="cPid" aria-label="Proyecto" style="max-width:280px"><option value="">Todos los proyectos</option>${ps.map(p=>`<option value="${esc(p.id)}" ${p.id===CPID?"selected":""}>${esc(p.codigo)} · ${esc(p.nombre)}</option>`).join("")}</select>
+      <div class="seg" role="group" aria-label="Estado">${Object.keys(CEST_TXT).map(x=>`<button type="button" data-g="cest" data-x="${x}" aria-pressed="${CEST===x}">${CEST_TXT[x]}</button>`).join("")}</div>
+      <input id="cMes" type="month" value="${esc(CMES)}" aria-label="Mes" style="max-width:170px">
+      <input id="cBus" type="search" placeholder="Buscar cliente o lote" value="${esc(CBUS)}" style="max-width:220px" aria-label="Buscar cliente o lote">
+      <span class="grow"></span><button type="button" class="btn sec sm" data-g="cxlsx">Descargar Excel</button></div>
+    ${C.rows.length?`<div class="ccards">${rows.slice(0,400).map(x=>`<div class="ccard"><div class="inline" style="justify-content:space-between;gap:8px"><b>${gFechaTxt(x.r.fecha)}</b>${cuotaPill(x.estado)}</div>
+        <div><button type="button" class="linkbtn" data-g="clot" data-x="${esc(x.l.id)}">${esc(x.p.codigo)} · ${esc(x.l.codigo)}</button> · ${esc(x.cliente||"—")}</div>
+        <div class="inline" style="justify-content:space-between;gap:8px"><span class="mini">${esc(x.r.concepto)}${x.r.pago?" · pagó "+gFechaTxt(x.r.pago.fecha):""}</span><b>${mon(x.r.monto,x.pm,2)}</b></div>
+        ${ed?`<button type="button" class="btn ${x.estado==="pagada"?"sec":"pri"} sm" data-g="cpay" data-x="${esc(x.l.id)}|${esc(x.r.k)}">${x.estado==="pagada"?"Ver pago":"Registrar pago"}</button>`:""}</div>`).join("")||`<p class="hint">No hay cuotas con ese filtro.</p>`}</div>
+      <div class="tablebox cdesk" style="margin-top:10px"><table><thead><tr><th>Vence</th><th>Lote</th><th>Cliente</th><th>Concepto</th><th class="r">Monto</th><th>Estado</th><th></th></tr></thead><tbody>
+      ${rows.slice(0,400).map(x=>`<tr><td>${gFechaTxt(x.r.fecha)}</td><td><button type="button" class="linkbtn" data-g="clot" data-x="${esc(x.l.id)}">${esc(x.p.codigo)} · ${esc(x.l.codigo)}</button></td><td>${esc(x.cliente||"—")}</td><td>${esc(x.r.concepto)}</td>
+        <td class="r"><b>${mon(x.r.monto,x.pm,2)}</b>${x.r.pago&&x.estado!=="pagada"?`<br><span class="mini">pagó ${mon(x.r.pago.monto,x.pm,2)}</span>`:""}</td><td>${cuotaPill(x.estado)}${x.r.pago?`<br><span class="mini">${gFechaTxt(x.r.pago.fecha)}${x.r.pago.medio?" · "+esc(x.r.pago.medio):""}</span>`:""}</td>
+        <td>${ed?`<button type="button" class="btn ${x.estado==="pagada"?"sec":"pri"} sm" data-g="cpay" data-x="${esc(x.l.id)}|${esc(x.r.k)}">${x.estado==="pagada"?"Ver pago":"Registrar pago"}</button>`:""}</td></tr>`).join("")||`<tr><td colspan="7" class="hint">No hay cuotas con ese filtro.</td></tr>`}
+      </tbody></table></div>${rows.length>400?`<p class="hint">Se muestran 400 de ${rows.length}. Usa los filtros o descarga el Excel.</p>`:""}`
+      :`<div class="empty" style="margin-top:14px">Aún no hay planes de pago. Cuando en APOLLO marques un lote como reservado o vendido con su forma de pago, sus cuotas aparecen aquí.</div>`}
+    ${CPAY?paySheet():CLOT?lotPlanSheet():""}`);
+}
+function paySheet(){
+  const [id,k]=CPAY.split("|"), l=GS.lots[id]; if(!l||!l.plan) return ""; const p=GS.projects[l.pid], r=gCronograma(l.plan).rows.find(z=>z.k===k); if(!r) return "";
+  const pg=r.pago||{fecha:gHoy(),monto:r.monto,medio:"Transferencia",nota:""};
+  return `<div class="sheet-bg" data-g="cclose"></div><div class="sheet big" role="dialog" aria-label="Registrar pago">
+    <div class="who"><div><b style="font-size:19px;font-family:var(--display)">${esc(r.concepto)}</b><span class="mini">${esc(p.codigo)} · lote ${esc(l.codigo)} · ${esc(l.cliente||"sin cliente")} · vence ${gFechaTxt(r.fecha)} · ${mon(r.monto,p.moneda,2)}</span></div></div>
+    <div class="fgrid"><div><label for="pyF">Fecha del pago</label><input id="pyF" type="date" value="${esc(pg.fecha)}"></div><div><label for="pyM">Monto recibido (${curS(p.moneda)})</label><input id="pyM" type="number" step="any" min="0" inputmode="decimal" value="${esc(pg.monto)}"></div>
+      <div><label for="pyMed">Medio</label><select id="pyMed">${["Transferencia","Depósito","Efectivo","Yape / Plin","Cheque","Otro"].map(x=>`<option ${pg.medio===x?"selected":""}>${x}</option>`).join("")}</select></div>
+      <div><label for="pyN">N.º de operación o nota</label><input id="pyN" value="${esc(pg.nota||"")}" maxlength="200"></div></div>
+    ${r.pago?`<p class="mini" style="margin:0">Registrado el ${esc(r.pago.registrado||"")}${r.pago.por?" por "+esc(r.pago.por):""}.</p>`:""}
+    <div class="inline"><button type="button" class="btn pri" data-g="cpaySave" style="flex:1">${r.pago?"Actualizar pago":"Guardar pago"}</button>${r.pago?`<button type="button" class="btn sec" data-g="cpayDel" style="color:var(--des-ink)">Quitar pago</button>`:""}<button type="button" class="btn sec" data-g="cclose">Cancelar</button></div></div>`;
+}
+function lotPlanSheet(){
+  const l=GS.lots[CLOT]; if(!l||!l.plan) return ""; const p=GS.projects[l.pid], cr=gCronograma(l.plan), hoy=gHoy(), ed=can("poseidon","editar");
+  const pag=cr.rows.reduce((s,r)=>s+(r.pago?gN(r.pago.monto):0),0);
+  return `<div class="sheet-bg" data-g="cclose"></div><div class="sheet big" role="dialog" aria-label="Cronograma del lote">
+    <div class="who"><div><b style="font-size:19px;font-family:var(--display)">${esc(p.codigo)} · lote ${esc(l.codigo)}</b><span class="mini">${esc(l.cliente||"Sin cliente")} · ${l.plan.tipo==="contado"?"al contado":cr.n+" cuotas de "+mon(cr.cuota,p.moneda,2)} · total ${mon(cr.total,p.moneda,2)} · pagado ${mon(pag,p.moneda,2)}</span></div></div>
+    <div class="tablebox" style="max-height:52vh;overflow:auto"><table><thead><tr><th>Concepto</th><th>Vence</th><th class="r">Monto</th><th>Estado</th><th></th></tr></thead><tbody>
+      ${cr.rows.map(r=>{const e=gEstadoCuota(r,hoy); return `<tr><td>${esc(r.concepto)}</td><td>${gFechaTxt(r.fecha)}</td><td class="r">${mon(r.monto,p.moneda,2)}</td><td>${cuotaPill(e)}</td><td>${ed?`<button type="button" class="btn sec sm" data-g="cpay" data-x="${esc(l.id)}|${esc(r.k)}">${r.pago?"Ver":"Pagar"}</button>`:""}</td></tr>`;}).join("")}</tbody></table></div>
+    <div class="inline"><button type="button" class="btn sec" data-g="cpdf" data-x="${esc(l.id)}" style="flex:1">Descargar cronograma (PDF)</button><button type="button" class="btn sec" data-g="cclose">Cerrar</button></div></div>`;
+}
+async function excelCobranzas(){
+  const C=gCobranzas(GS,{pid:CPID}), H=t=>({v:t,s:XS.head}), M=v=>({v:Math.round((v||0)*100)/100,s:XS.money}), T=v=>({v:String(v??""),s:XS.dec});
+  const rows=[[{v:"Cronograma de cobranzas",s:XS.title}],[{v:"Generado "+hoyTxt().txt+" · "+(CPID?GS.projects[CPID].nombre:"todos los proyectos"),s:XS.muted}],
+    ["Vence","Proyecto","Lote","Cliente","Concepto","Moneda","Monto","Pagado","Fecha de pago","Medio","Nota","Saldo","Estado"].map(H)];
+  C.rows.forEach(x=>{ const n=rows.length+1; rows.push([T(x.r.fecha),T(x.p.codigo+" · "+x.p.nombre),T(x.l.codigo),T(x.cliente),T(x.r.concepto),T(x.pm),M(x.r.monto),M(x.r.pago?x.r.pago.monto:0),T(x.r.pago?x.r.pago.fecha:""),T(x.r.pago?x.r.pago.medio:""),T(x.r.pago?x.r.pago.nota:""),
+    {f:`G${n}-H${n}`,v:Math.round((x.r.monto-(x.r.pago?gN(x.r.pago.monto):0))*100)/100,s:XS.big},T(GAIA_CUOTA_TXT[x.estado])]); });
+  const blob=await xlsxBlob([{nombre:"Cobranzas",rows,anchos:[11,28,8,24,18,8,13,13,12,13,22,13,12],fijar:3,filtro:`A3:M${Math.max(rows.length,3)}`}]);
+  const url=URL.createObjectURL(blob), a=document.createElement("a"); a.href=url; a.download=`Cronograma de cobranzas - ${hoyTxt().iso}.xlsx`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),60000);
+}
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-g]"); if(!b||b.disabled) return; const a=b.dataset.g, x=b.dataset.x;
+  if(a==="goViab") return go("viab",x);
+  if(a==="goCom") return go("comercial",x);
+  if(a==="goInv"){ ATAB="inv"; IPID=x; IFILT="todos"; return go("tablero"); }
+  if(VIEW==="cabida"&&a==="finReset"){ const M=gModelos(GS)[DP.modelo]||{}; DP.financ=gMerge(GAIA_FIN_DEF,M.financ); markDirty(); return keep(draw); }
+  if(VIEW==="viab"&&a==="viabPdf") return run(b,"Generando…",async()=>{ const r=await api("g_viabPdf",{pid:DP.id}); descargar(r.base64,r.nombre); toast("Informe descargado y guardado en Drive."); });
+  if(VIEW==="viab"&&a==="aprob") return run(b,"Guardando…",async()=>{
+    const v=gViab(SXH(),DP.id);
+    if(x==="aprobar"&&v.estado==="no"&&!confirm("El proyecto aparece como NO VIABLE con los números actuales. ¿Aprobarlo de todas formas?")) return;
+    if(x==="rechazar"&&!VNOTA.trim()) throw new Error("Escribe en el comentario qué hay que corregir.");
+    const r=await api("g_aprobacion",{pid:DP.id,paso:x,nota:VNOTA}); GS.projects[DP.id]=r.proyecto; DP=clone(r.proyecto); VNOTA="";
+    toast({enviar:"Enviado a aprobación.",aprobar:"Proyecto aprobado: ya puede comercializarse.",rechazar:"Proyecto observado.",reabrir:"Se quitó la aprobación."}[x]); keep(draw); });
+  if(VIEW==="comercial"&&a==="casig") return run(null,"",async()=>{ const s=new Set(DP.asesores||[]); s.has(x)?s.delete(x):s.add(x);
+    const r=await api("g_asesoresProy",{pid:DP.id,asesores:[...s]}); GS.projects[DP.id]=r.proyecto; DP=clone(r.proyecto); keep(draw); });
+  if(VIEW!=="cobranzas") return;
+  if(a==="cest"){ CEST=x; return keep(draw); }
+  if(a==="cpay"){ CPAY=x; return keep(draw); }
+  if(a==="clot"){ CLOT=x; CPAY=null; return keep(draw); }
+  if(a==="cclose"){ if(CPAY&&CLOT){ CPAY=null; } else { CPAY=null; CLOT=null; } return keep(draw); }
+  if(a==="cpaySave"||a==="cpayDel") return run(b,"Guardando…",async()=>{ const [id,k]=CPAY.split("|");
+    const pago=a==="cpayDel"?null:{fecha:$("pyF").value,monto:gN($("pyM").value),medio:$("pyMed").value,nota:$("pyN").value.trim()};
+    if(a==="cpayDel"&&!confirm("¿Quitar este pago? La cuota vuelve a quedar pendiente.")) return;
+    const r=await api("g_pago",{id,k,pago}); GS.lots[id]=r.lote; CPAY=null; toast(pago?"Pago registrado.":"Pago quitado."); keep(draw); });
+  if(a==="cpdf") return run(b,"Generando…",async()=>{ const r=await api("g_cronogramaPdf",{id:x}); descargar(r.base64,r.nombre); toast("Cronograma descargado."); });
+  if(a==="cxlsx") return run(b,"Armando Excel…",async()=>{ await excelCobranzas(); toast("Excel descargado."); });
+});
+document.addEventListener("input",e=>{ const t=e.target;
+  if(t.dataset.vnota){ VNOTA=t.value; return; }
+  if(t.dataset.gfin!==undefined&&DP){ DP.financ=gMerge(gFinanc(DP,GS),{}); DP.financ[t.dataset.gfin]=gN(t.value); markDirty(); return; }
+  if(VIEW==="cobranzas"&&t.id==="cBus"){ CBUS=t.value; const pos=t.selectionStart; draw(); const n=$("cBus"); if(n){ n.focus(); n.setSelectionRange(pos,pos); } }
+});
+document.addEventListener("change",e=>{ const t=e.target; if(VIEW!=="cobranzas") return;
+  if(t.id==="cPid"){ CPID=t.value; keep(draw); } if(t.id==="cMes"){ CMES=t.value; keep(draw); } });
 
 function medir(){ const h=document.querySelector('header.top'); if(h) document.documentElement.style.setProperty('--hh',h.offsetHeight+'px'); }
 addEventListener('resize',medir); new ResizeObserver(medir).observe(document.querySelector('header.top'));

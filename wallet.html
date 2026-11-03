@@ -304,7 +304,12 @@ function pintar(w) {
       <div class="kpi"><small>Ya ganado</small><b class="num">${pen(w.ganado)}</b><span>campaña hasta ${fdate(per.fin)} · ${per.diasRest} días</span>
         <div class="prog" aria-hidden="true"><i style="width:${Math.round((per.pctTiempo || 0) * 100)}%"></i></div></div>
     </div>
+    ${(w.asignados || []).length ? `<div class="panel"><h3 style="margin:0 0 6px">Proyectos que puedes vender</h3><p class="muted" style="margin:0 0 10px">Estás asignado a estos proyectos. Cada lote libre que vendas suma a tu wallet.</p>
+      <div class="tablebox"><table><thead><tr><th>Proyecto</th><th class="r">Lotes libres</th><th class="r">Ganas por lote</th><th class="r">Si vendes todos</th></tr></thead><tbody>
+      ${w.asignados.map(a => `<tr><td><b>${esc(a.codigo)}</b> · ${esc(a.nombre)}</td><td class="r">${a.disponibles}</td><td class="r">${pen(a.porLote)}</td><td class="r"><b>${pen(a.potencial)}</b></td></tr>`).join("")}</tbody></table></div></div>` : ""}
     ${w.proyectos.length ? w.proyectos.map(proy).join("") : `<div class="panel empty">Aún no tienes lotes asignados. Cuando la administración te asigne lotes, aparecerán aquí.</div>`}
+    <div class="panel" style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap"><div><b>¿Conseguiste un terreno?</b><p class="muted" style="margin:2px 0 0">Regístralo en ELEUTHIA con la ficha de captación.</p></div>
+      <a class="btn" href="registro.html?modo=completo&por=${encodeURIComponent(w.nombre)}">Registrar predio</a></div>
   </div>`;
 }
 function proy(pw) {

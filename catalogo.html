@@ -283,7 +283,7 @@ function render() {
       ${site.subtitulo ? `<p>${esc(site.subtitulo)}</p>` : ""}
       <div class="chips">${ps.map(p => `<a class="chip" href="#p-${esc(p.id)}">${esc(p.codigo || "")} · ${esc(p.nombre)}</a>`).join("")}</div>
     </div></div></section>`;
-  const pie = site.pie ? `<footer class="pie"><div class="wrap"><p>${esc(site.pie)}</p></div></footer>` : "";
+  const pie = `<footer class="pie"><div class="wrap">${site.pie ? `<p>${esc(site.pie)}</p>` : ""}<p><b>¿Tienes un terreno?</b> <a href="registro.html?modo=invitado">Regístralo aquí</a> y te contactamos para evaluarlo.</p></div></footer>`;
   $("#app").innerHTML = hero + (ps.length ? ps.map(viewProject).join("") : `<div class="wrap empty">Pronto publicaremos nuestros proyectos.</div>`) + pie;
   scrollTo(0, y);
 }
