@@ -371,6 +371,8 @@ label{font-weight:700;font-size:13px;display:block;margin-bottom:5px;color:var(-
 .ccard{display:grid;gap:6px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
 .ccard .btn{justify-self:start}
 @media (max-width:700px){.ccards{display:grid}.cdesk{display:none}}
+.gate-guest{position:relative;z-index:1;margin-top:14px;padding:14px 16px;border:1px dashed var(--line2);border-radius:18px;display:grid;gap:8px;text-align:center;background:color-mix(in srgb,var(--card) 70%,transparent)}
+.gate-guest span{font-size:13.5px;color:var(--muted)} .gate-guest .btn{text-decoration:none;justify-content:center}
 
 .gatemode .wrap{padding:0!important;max-width:none!important}
 .sheet .item svg{width:30px;height:30px;border-radius:8px;flex:none}
@@ -986,6 +988,7 @@ function renderLogin(msg){
     ${msg?`<div class="err" role="alert">${esc(msg)}</div>`:""}
     <button class="btn pri" type="submit" id="bEntrar">Entrar</button>
     <p class="hint" style="margin:0;text-align:center">Administrador: usuario <b>admin</b> y la clave del panel.</p></form>
+    <div class="gate-guest"><span>¿No tienes usuario?</span><a class="btn sec" href="registro.html?modo=invitado&desde=gaia">Registrar predio como invitado</a></div>
     <p class="gate-foot">Grupo TuTierra E.I.R.L. · Cusco</p></div></div>`;
   ($("iUsuario").value?$("iClave"):$("iUsuario")).focus();
 }

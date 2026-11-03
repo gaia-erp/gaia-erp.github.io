@@ -378,6 +378,7 @@ function renderDone(){
     ${MODO==="invitado"?"":`<div class="f"><span class="lbl">Resumen para WhatsApp</span><pre class="wa" id="waPre">${esc(waText(r))}</pre></div>`}`;
   $("btnBack").hidden=false; $("btnBack").textContent=MODO==="invitado"?"Registrar otro predio":"Nueva ficha";
   $("btnNext").textContent="Copiar resumen para WhatsApp"; $("btnNext").hidden=MODO==="invitado";
+  if(MODO==="invitado") $("actions").hidden=true;
 }
 
 function downloadPdf(){
