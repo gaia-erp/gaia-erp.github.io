@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Registrar predio · GAIA</title>
-<meta name="theme-color" content="#050B12">
+<meta name="theme-color" content="#040405">
 <link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap">
 <style>
 /* Layout: una columna tipo app de campo; encabezado fijo con progreso, pasos con botones grandes, barra de acción abajo */
 :root{
@@ -95,18 +95,20 @@ pre.wa{white-space:pre-wrap;font-family:var(--body);font-size:14px;background:va
 .rowbtns .btn{flex:1 1 auto}
 .confirm{margin-top:12px;padding:12px;border-radius:12px;background:var(--errbg);color:var(--err);font-weight:700;display:grid;gap:10px}
 .edited{font-size:13px;color:var(--warn)}
-/* GAIA: paleta "Noche andina" (oscuro) y "Adobe" (claro) */
-:root{--bg:#F4EFE7;--card:#FFFCF7;--ink:#1B2430;--muted:#5E6873;--line:#E5DACB;--brand:#0B6E7F;--brand-ink:#FFFFFF;--soft:#E2EEEE;--ochre:#C8602B;--ok:#1D6A48;--warn:#8A3B0E;--err:#9A2626;--errbg:#F9DCDA;
-  --display:"Chakra Petch","Segoe UI",system-ui,sans-serif;--body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#050B12;--card:#0A1520;--ink:#E6EEF5;--muted:#8FA3B6;--line:#1D3346;--brand:#3BE3F2;--brand-ink:#03141B;--soft:rgba(59,227,242,.10);--ochre:#E8834A;--ok:#7BE4B4;--warn:#F3B48C;--err:#FF9D9D;--errbg:rgba(240,96,96,.14);color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#050B12;--card:#0A1520;--ink:#E6EEF5;--muted:#8FA3B6;--line:#1D3346;--brand:#3BE3F2;--brand-ink:#03141B;--soft:rgba(59,227,242,.10);--ochre:#E8834A;--ok:#7BE4B4;--warn:#F3B48C;--err:#FF9D9D;--errbg:rgba(240,96,96,.14);color-scheme:dark}
-h1,h2{letter-spacing:.01em}
-.org{color:var(--brand)}
+/* GAIA 2: claro "Petróleo" y oscuro "Ares" */
+:root{--bg:#E9F0F0;--card:#F7FBFB;--ink:#0D2629;--muted:#557074;--line:#C9DADA;--brand:#0E6B6B;--brand-ink:#FFFFFF;--soft:#DDEDED;--ochre:#0E6B6B;--ok:#156B45;--warn:#8F4314;--err:#A02A22;--errbg:#FBE3E1;
+  --display:"Inter",system-ui,sans-serif;--body:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#040405;--card:#0B0B0E;--ink:#F3F3F5;--muted:#8E8E99;--line:#26262E;--brand:#FF3030;--brand-ink:#140000;--soft:rgba(255,48,48,.10);--ochre:#FF3030;--ok:#8FE6FF;--warn:#FFCB6B;--err:#FF8A8A;--errbg:rgba(255,48,48,.14);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#040405;--card:#0B0B0E;--ink:#F3F3F5;--muted:#8E8E99;--line:#26262E;--brand:#FF3030;--brand-ink:#140000;--soft:rgba(255,48,48,.10);--ochre:#FF3030;--ok:#8FE6FF;--warn:#FFCB6B;--err:#FF8A8A;--errbg:rgba(255,48,48,.14);color-scheme:dark}
+h1,h2{letter-spacing:-.02em;font-weight:650}
+.org{color:var(--brand);letter-spacing:.14em}
+.chip,.btn,input,textarea,select,.check,.sum{border-radius:8px}
+.bar>i{box-shadow:0 0 12px var(--brand)}
+.btn.pri{box-shadow:0 0 16px color-mix(in srgb,var(--brand) 30%,transparent)}
 .modos{display:grid;gap:12px;margin-top:18px}
-.modo{display:grid;gap:4px;text-align:left;padding:18px;border-radius:16px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font:inherit;cursor:pointer}
-.modo:hover,.modo:focus-visible{border-color:var(--brand)}
-.modo b{font-family:var(--display);font-size:19px;color:var(--brand)} .modo span{color:var(--muted);font-size:15px}
+.modo{display:grid;gap:4px;text-align:left;padding:18px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font:inherit;cursor:pointer}
 body.embed .wrap{max-width:none;padding-inline:20px} body.embed header.top{position:static}
+#main>*{animation:gIn .3s cubic-bezier(.2,.7,.2,1) both} @keyframes gIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
 @media (prefers-reduced-motion:reduce){.bar>i{transition:none}}
 </style>
