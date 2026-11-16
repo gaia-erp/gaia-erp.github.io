@@ -499,6 +499,10 @@ tr.late td{background:color-mix(in srgb,var(--des) 55%,transparent)} .ccard.late
 table.dest th.c,table.dest td.c{text-align:center} table.dest tr.off{opacity:.5}
 td.neg,.neg{color:var(--des-ink)}
 .simbox .kpi{grid-column:auto!important}
+.rkrow{display:grid;grid-template-columns:130px 170px minmax(0,1fr) auto;gap:8px;align-items:center}@media (max-width:640px){.rkrow{grid-template-columns:1fr 1fr}.rkrow input{grid-column:1/-1}}
+.catgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-top:12px}
+.catlote{display:grid;gap:6px;padding:12px;border:1px solid var(--line);border-left:4px solid var(--c1);border-radius:12px;background:var(--card)}
+.catlote .pr{font-size:18px;font-variant-numeric:tabular-nums} .catlote.st-b-reservado{border-left-color:var(--c3)} .catlote.st-b-separado{border-left-color:var(--c4)} .catlote.st-b-vendido{border-left-color:var(--c2);opacity:.75}
 
 </style>
 </head>
@@ -1185,7 +1189,7 @@ function entrar(){
   document.body.classList.remove("gatemode");
   $("topbar").hidden=false; $("side").hidden=false; $("tabbar").hidden=false;
   $("brandIcon").innerHTML=icon("gaia"); $("btnUser").textContent=ini(); pintarTemaBtn();
-  FICHAS=null; GS=null; OPS=null; RT_SIG=""; go(PERFIL.rol==="asesor"?"operaciones":PERFIL.rol==="contabilidad"?"cobranzas":"inicio");
+  FICHAS=null; GS=null; OPS=null; RT_SIG=""; go(PERFIL.rol==="asesor"?"comercial":PERFIL.rol==="contabilidad"?"cobranzas":"inicio");
 }
 function salirLocal(){
   TOKEN=""; PERFIL=null; store("gaia_token",null); FICHAS=null; GS=null; EV=null; CUR=null; DP=null; DL=null;
@@ -1207,12 +1211,12 @@ function estadoDe(f){
 function pillFor(f){
   const e=estadoDe(f), d=f.eval&&f.eval.destino;
   const cls={"Aprobadas":"fav","Evaluadas":"att","Descartadas":"des","En evaluación":"","Sin evaluar":""}[e];
-  const txt=e==="Aprobadas"?"Proyecto · "+d:e==="Evaluadas"?"Evaluada · "+d:e==="Descartadas"?"Descartada":e==="En evaluación"?"Borrador":"Sin evaluar";
-  return `<span class="pill ${cls}">${esc(txt)}</span>`;
+  const txt=e==="Aprobadas"?"Aprobado · "+d:e==="Evaluadas"?"Evaluada · "+d:e==="Descartadas"?"Descartada":e==="En evaluación"?"Borrador":"Sin evaluar";
+  return `${f.semaforo?`<span title="${esc(SEM_TXT[f.semaforo]||"")}" style="margin-right:6px">${{verde:"🟢",ambar:"🟡",rojo:"🔴"}[f.semaforo]}</span>`:""}<span class="pill ${cls}">${esc(txt)}</span>`;
 }
 function renderLista(){
   CUR=null; EV=null; VIEW="predios"; DP=null; DL=null; wide(false); navOn("predios");
-  $("btnLista").hidden=true; $("hMod").textContent="GAIA · ELEUTHIA"; setMod("eleuthia"); $("hTitle").textContent="Predios captados";
+  $("btnLista").hidden=true; $("hMod").textContent="GAIA · HADES"; setMod("hades"); $("hTitle").textContent="Evaluación de predios";
   const fs=["Todas","Sin evaluar","En evaluación","Evaluadas","Aprobadas","Descartadas"];
   const q=buscar.toLowerCase();
   const items=FICHAS.filter(f=>(filtro==="Todas"||estadoDe(f)===filtro)&&(!q||[f.codigo,f.propietario,f.distrito,f.originador].join(" ").toLowerCase().includes(q)));
@@ -1266,7 +1270,7 @@ function renderEval(){
   VIEW="predios"; wide(false); navOn("predios");
   if(EV&&EV.modo==="documento") return renderEvalDoc();
   const d=CUR, v=d.v||{}, r=resultado(), dis=bloqueada()?"disabled":"";
-  $("btnLista").hidden=false; $("hMod").textContent="GAIA · MINERVA"; setMod("minerva"); $("hTitle").textContent=`Evaluación ${d.codigo}`;
+  $("btnLista").hidden=false; $("hMod").textContent="GAIA · HADES"; setMod("hades"); $("hTitle").textContent=`Evaluación ${d.codigo}`;
   const ratio=r.ratio?Math.round(r.ratio*100)+" % del mercado":"";
   const fichaKV=[["Propietario",v.pr_nombre],["Ubicación",[v.ubicacion,v.distrito,v.provincia].filter(Boolean).join(", ")],["Área declarada",v.area?num(v.area)+" "+(v.area_u||"m²"):""],
     ["Titularidad",v.titularidad],["¿Propietario único?",v.pr_unico+(v.pr_coprop?" · "+v.pr_coprop:"")],["Qué busca",v.busca],["Precio esperado",v.precio_m2?(v.precio_moneda==="USD"?"US$ ":"S/ ")+num(v.precio_m2)+" por m²":""],
@@ -1274,7 +1278,7 @@ function renderEval(){
   $("main").innerHTML=`
   <div class="resbar" id="resbar" aria-live="polite">${resbarHTML(r)}</div>
   ${bloqueada()?"":`<div class="banner evp-only" style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span>¿Ya tienes la evaluación hecha en PDF? Súbela y GAIA la lee.</span>${evpUpload(["Subir evaluación en PDF","pri"])}</div>`}
-  ${bloqueada()?`<div class="card" style="margin-top:12px"><b>Evaluación aprobada como proyecto.</b> Ya no se puede modificar. ${d.evalPdf?`<a href="${esc(d.evalPdf)}" target="_blank" rel="noopener">Ver informe en Drive</a>`:""}</div>`:""}
+  ${bloqueada()?`<div class="card" style="margin-top:12px"><b>Predio aprobado.</b> Ya no se puede modificar. ${d.evalPdf?`<a href="${esc(d.evalPdf)}" target="_blank" rel="noopener">Ver informe en Drive</a>`:""}</div>`:""}
   <h2>Ficha de captación</h2>
   <div class="card"><dl class="kv">${fichaKV.map(([k,x])=>`<dt>${esc(k)}</dt><dd>${esc(x)}</dd>`).join("")}</dl>
     <p class="hint" style="margin:10px 0 0">${d.pdfFicha?`<a href="${esc(d.pdfFicha)}" target="_blank" rel="noopener">Ficha en PDF</a> · `:""}${d.carpeta?`<a href="${esc(d.carpeta)}" target="_blank" rel="noopener">Carpeta del predio</a>`:""}</p></div>
@@ -1338,9 +1342,10 @@ function renderEval(){
   <div class="actions">
     <button type="button" class="btn sec" id="bGuardar" ${dis}>Guardar borrador</button>
     <button type="button" class="btn pri" id="bEmitir" ${dis}>Emitir informe en PDF</button>
-    <button type="button" class="btn sec" id="bAprobar" ${(d.evalEstado==="Emitida"&&(EV.destino_final||r.destino)!=="Descarte")?"":"disabled"}>Aprobar como proyecto</button>
+    <button type="button" class="btn sec" id="bAprobar" ${(d.evalEstado==="Emitida"&&(EV.destino_final||r.destino)!=="Descarte")?"":"disabled"}>Aprobar predio</button>
     ${(d.evalEstado==="Emitida"||d.evalEstado==="Aprobada")?`<button type="button" class="btn sec" id="bReabrir">Reabrir evaluación</button>`:""}
     ${d.evalEstado?`<button type="button" class="btn sec" id="bBorrar" style="color:var(--des-ink)">Eliminar evaluación</button>`:""}
+    ${can("minerva","editar")&&d.evalEstado!=="Aprobada"?`<button type="button" class="btn sec" id="bBorrarF" style="color:var(--des-ink)">Eliminar predio</button>`:""}
   </div>
   <div id="confBorrar"></div>
   <p class="hint" id="estadoTxt">${esc(estadoTexto())}</p>
@@ -1349,7 +1354,7 @@ function renderEval(){
 }
 function estadoTexto(){
   const e=CUR.evalEstado;
-  if(e==="Aprobada") return "Estado: aprobada como proyecto.";
+  if(e==="Aprobada") return "Estado: predio aprobado.";
   if(e==="Emitida") return "Estado: informe emitido. Si cambias algo, vuelve a emitirlo.";
   if(e==="Borrador") return "Estado: borrador guardado.";
   return "Estado: sin guardar.";
@@ -1385,7 +1390,7 @@ async function accion(op,btn){
     if(op==="emitir"){ $("pdfBox").innerHTML=`<div class="card" style="margin-top:10px"><b>Informe emitido.</b> Se guardó en la carpeta del predio, subcarpeta 02_Evaluación.
       <div class="actions" style="margin-top:8px"><button type="button" class="btn pri sm" id="bDescargar">Descargar PDF</button><a class="btn sec sm" style="display:inline-flex;align-items:center;text-decoration:none" href="${esc(r.pdfUrl)}" target="_blank" rel="noopener">Abrir en Drive</a></div></div>`;
       $("bDescargar").onclick=()=>descargar(r.pdfBase64,r.pdfName); }
-    toast({emitir:"Informe emitido.",aprobar:r.proyecto?`Aprobado. Se creó ${r.proyecto.codigo} en borrador: ármalo en HEPHAESTUS y DEMETER.`:"Aprobado como proyecto.",guardar:"Borrador guardado.",
+    toast({emitir:"Informe emitido.",aprobar:"Predio aprobado. Si se convierte en proyecto, créalo en HEPHAESTUS.",guardar:"Borrador guardado.",
       reabrir:"Evaluación reabierta. Corrígela y vuelve a emitir el informe.",borrarEval:"Evaluación eliminada. El predio quedó sin evaluar."}[op]);
   }catch(e){ toast(e.message); btn.disabled=false; btn.textContent=t; }
   busy=false;
@@ -1429,6 +1434,11 @@ document.addEventListener("click",e=>{
       <span style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn pri" id="bBorrarOk" style="background:var(--des-ink);color:var(--card)">Sí, eliminar</button><button type="button" class="btn sec" id="bBorrarNo">Cancelar</button></span></div>`; return; }
   if(t.id==="bBorrarNo"){ $("confBorrar").innerHTML=""; return; }
   if(t.id==="bBorrarOk") return accion("borrarEval",t);
+  if(t.id==="bBorrarF"){ $("confBorrar").innerHTML=`<div class="err" style="margin-top:12px;display:grid;gap:10px"><span>¿Eliminar el predio ${esc(CUR.codigo)} completo: ficha, evaluación y su carpeta de Drive? Va a la papelera y el correlativo se reorganiza.</span>
+      <span style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn pri" id="bBorrarFOk" style="background:var(--des-ink);color:var(--card)">Sí, eliminar predio</button><button type="button" class="btn sec" id="bBorrarNo">Cancelar</button></span></div>`; return; }
+  if(t.id==="bBorrarFOk"){ t.disabled=true; t.textContent="Eliminando…"; const cod=CUR.codigo;
+    api("borrarFicha",{codigo:cod}).then(r=>{ FICHAS=r.fichas||FICHAS.filter(f=>f.codigo!==cod); toast(`${cod} eliminado.`+(r.mapa&&Object.keys(r.mapa).length?" Correlativo reorganizado.":"")); renderLista(); })
+      .catch(err=>{ t.disabled=false; t.textContent="Sí, eliminar predio"; toast(err.message); }); return; }
 });
 $("btnLista").onclick=async()=>{ renderLista(); scrollTo(0,0); try{ const d=await api("init"); FICHAS=d.fichas; P={...evalParamsDefault(),...d.params}; if(!EV) renderLista(); }catch(e){} };
 $("btnSalir").onclick=logout;
@@ -1446,15 +1456,15 @@ const vpen=(v,d=0)=>VC==="USD"?mon(v/(gN(GS.config.tc)||1),"USD",d):mon(v,"PEN",
 const thumb=(id,w=600)=>`https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w${w}`;
 const fdate=d=>(d instanceof Date?d:new Date(d+"T12:00:00")).toLocaleDateString("es-PE",{day:"numeric",month:"short",year:"numeric"});
 const dirty=()=>DIRTY_P||DIRTY_L||DIRTY_C;
-const NAV=[["inicio","gaia","GAIA","Inicio"],["predios","eleuthia","ELEUTHIA","Predios"],["proyectos","hephaestus","HEPHAESTUS","Proyectos"],["hades","hades","HADES","Modelo Redin"],["cabida","demeter","DEMETER","Cabida"],["tablero","apollo","APOLLO","Tablero"],["operaciones","hermes","HERMES","Operaciones"],["cobranzas","poseidon","POSEIDON","Cobranzas"],["ajustes","gaia","GAIA","Ajustes"]];
+const NAV=[["inicio","gaia","GAIA","Inicio"],["predios","hades","HADES","Evaluación de predios"],["proyectos","hephaestus","HEPHAESTUS","Proyectos"],["cabida","demeter","DEMETER","Cabida"],["hades","minerva","MINERVA","Modelo y viabilidad"],["comercial","eleuthia","ELEUTHIA","Comercialización"],["operaciones","hermes","HERMES","Operaciones"],["tablero","apollo","APOLLO","Inventario y tablero"],["cobranzas","poseidon","POSEIDON","Cobranzas"],["ajustes","gaia","GAIA","Ajustes"]];
 
-const MODPERM={inicio:[],predios:["eleuthia","minerva"],registro:["eleuthia","minerva"],proyectos:["hephaestus"],proyecto:["hephaestus"],cabida:["demeter"],viab:["demeter","hephaestus"],comercial:["apollo"],hades:["hades"],tablero:["apollo"],cobranzas:["poseidon"],operaciones:["operaciones"],ajustes:["ajustes"]};
+const MODPERM={inicio:[],predios:["eleuthia","minerva"],registro:["eleuthia","minerva"],proyectos:["hephaestus"],proyecto:["hephaestus"],cabida:["demeter"],viab:["demeter","hephaestus","hades"],comercial:["apollo","operaciones"],hades:["hades"],tablero:["apollo"],cobranzas:["poseidon"],operaciones:["operaciones"],ajustes:["ajustes"]};
 function can(mod,lvl){ if(!PERFIL) return false; if(PERFIL.rol==="admin") return true; const v=(PERFIL.permisos||{})[mod]; return lvl==="editar"?v==="editar":!!v; }
-function canView(v){ if(v==="ajustes") return !!PERFIL&&PERFIL.rol==="admin"; const ms=MODPERM[v]||[]; return !ms.length||ms.some(m=>can(m,"ver")); }
+function canView(v){ if(v==="ajustes") return !!PERFIL&&PERFIL.rol==="admin"; if(v==="comercial"&&PERFIL&&PERFIL.rol==="contabilidad") return false; const ms=MODPERM[v]||[]; return !ms.length||ms.some(m=>can(m,"ver")); }
 function navOn(v){
-  const cur=v==="proyecto"?"proyectos":v==="viab"?"cabida":v==="comercial"?"tablero":v==="registro"?"predios":v, items=NAV.filter(n=>n[0]!=="inicio"&&canView(n[0]));
+  const cur=v==="proyecto"?"proyectos":v==="viab"?"hades":v==="registro"?"predios":v, items=NAV.filter(n=>n[0]!=="inicio"&&canView(n[0]));
   $("gnav").innerHTML=items.map(([k,ic,mod,l])=>`<button type="button" data-g="nav" data-x="${k}" aria-current="${k===cur}">${icon(ic)}<span><small>${mod}</small>${l}</span></button>`).join("");
-  const PRI=["tablero","operaciones","cobranzas","predios","proyectos","cabida","hades"];
+  const PRI=["tablero","comercial","operaciones","cobranzas","proyectos","predios","cabida","hades"];
   $("tabbar").innerHTML=items.filter(n=>n[0]!=="ajustes").sort((a,b)=>PRI.indexOf(a[0])-PRI.indexOf(b[0])).slice(0,5).map(([k,ic,mod,l])=>`<button type="button" data-g="nav" data-x="${k}" aria-current="${k===cur}">${icon(ic)}<span>${l}</span></button>`).join("");
 }
 function wide(on){ $("wrap").classList.toggle("narrow",!on); }
@@ -1465,7 +1475,7 @@ function main(html){ $("main").innerHTML=html+`<div id="dirtyBar"></div>`; paint
   if(!canView("hades")) m.querySelectorAll('[data-g="goHades"]').forEach(b=>b.hidden=true);
   if(VIEW!=="proyectos"&&!canView("proyectos")) m.querySelectorAll('[data-g="openP"]').forEach(b=>b.hidden=true);
   const mod={proyecto:"hephaestus",cabida:"demeter",tablero:"apollo"}[VIEW]; if(mod) roLock(mod); }
-const RO_OK='[data-g="nav"],[data-g="pcerrar"],[data-g="pciclose"],[data-g="pcigo"],[data-pci],[data-pcid],[data-g="goHades"],[data-g="htab"],[data-g="ptab"],[data-g="dmodo"],[data-g="vc"],[data-g="pfilt"],[data-g="openP"],[data-g="goCab"],[data-g="pdf"],[data-g="rpdf"],[data-g="rxlsx"],[data-g="ralc"],#rPid,[data-g="copy"],[data-gsel],[data-open],[data-f],#btnLista';
+const RO_OK='[data-g="nav"],[data-g="brief"],[data-g="pcerrar"],[data-g="pciclose"],[data-g="pcigo"],[data-pci],[data-pcid],[data-g="goHades"],[data-g="htab"],[data-g="ptab"],[data-g="dmodo"],[data-g="vc"],[data-g="pfilt"],[data-g="openP"],[data-g="goCab"],[data-g="pdf"],[data-g="rpdf"],[data-g="rxlsx"],[data-g="ralc"],#rPid,[data-g="copy"],[data-gsel],[data-open],[data-f],#btnLista';
 function roLock(mod){
   if(!PERFIL||can(mod,"editar")) return; const m=$("main");
   m.querySelectorAll("input,select,textarea,button").forEach(el=>{ if(!el.matches(RO_OK)) el.disabled=true; });
@@ -1496,7 +1506,7 @@ async function run(btn,label,fn){
 
 async function loadFichas(){ const d=await api("init"); P={...evalParamsDefault(),...d.params}; FICHAS=d.fichas; }
 async function go(v,pid){
-  if(v==="inicio"&&PERFIL&&PERFIL.rol==="asesor") v="operaciones";
+  if(v==="inicio"&&PERFIL&&PERFIL.rol==="asesor") v="comercial";
   if(!canView(v)){ toast("No tienes acceso a ese módulo."); return false; }
   if(dirty()&&!confirm("Tienes cambios sin guardar. ¿Salir sin guardarlos?")) return false;
   DIRTY_P=DIRTY_L=DIRTY_C=false; DELASK=""; EV=null; CUR=null; EVP=null; closeMenu();
@@ -1532,9 +1542,9 @@ function vProyectos(){
   const ps=gProjList(GS), f=PFILT, cnt=k=>k==="cerrado"?(GS.archivados||[]).length:k==="todos"?ps.length:ps.filter(p=>(k==="lanzado")===(p.estado==="lanzado")).length;
   const list=ps.filter(p=>f==="todos"||(f==="lanzado")===(p.estado==="lanzado"));
   main(`<div class="gtools"><div class="seg" role="group" aria-label="Filtrar proyectos">${[["todos","Activos"],["borrador","Borradores"],["lanzado","Lanzados"],["cerrado","Cerrados"]].map(([k,l])=>`<button type="button" data-g="pfilt" data-x="${k}" aria-pressed="${f===k}">${l} (${cnt(k)})</button>`).join("")}</div>
-    <span class="grow"></span><a class="btn sec sm" href="${URL_CAT}" target="_blank" rel="noopener">Ver catálogo público ↗</a></div>
-    <p class="hint" style="margin:6px 0 0">Los proyectos nuevos nacen al aprobar un predio en MINERVA. Entran en borrador: arma sus lotes aquí y su cabida en DEMETER; al lanzarlos aparecen en el catálogo.</p>
-    ${f==="cerrado"?archivadosLista():list.length?`<div class="pgrid">${list.map(pcard).join("")}</div>`:`<div class="empty" style="margin-top:14px">${ps.length?"Ningún proyecto en este filtro.":`Aún no hay proyectos. Importa tu catálogo actual o aprueba un predio en MINERVA.<div class="actions" style="justify-content:center"><button type="button" class="btn pri" data-g="nav" data-x="ajustes">Importar catálogo</button></div>`}</div>`}`);
+    <span class="grow"></span>${can("hephaestus","editar")?`<button type="button" class="btn pri sm" data-g="npOpen">+ Nuevo proyecto</button>`:""}<a class="btn sec sm" href="${URL_CAT}" target="_blank" rel="noopener">Ver catálogo público ↗</a></div>
+    <p class="hint" style="margin:6px 0 0">Cada proyecto nace en borrador: arma sus lotes aquí, su cabida en DEMETER y su modelo y viabilidad en MINERVA. Una vez aprobado y lanzado, aparece en el catálogo.</p>
+    ${f==="cerrado"?archivadosLista():list.length?`<div class="pgrid">${list.map(pcard).join("")}</div>`:`<div class="empty" style="margin-top:14px">${ps.length?"Ningún proyecto en este filtro.":`Aún no hay proyectos. Crea el primero con <b>+ Nuevo proyecto</b> o importa tu catálogo actual.<div class="actions" style="justify-content:center"><button type="button" class="btn pri" data-g="npOpen">+ Nuevo proyecto</button><button type="button" class="btn sec" data-g="nav" data-x="ajustes">Importar catálogo</button></div>`}</div>`}${NPJ?npSheet():""}`);
 }
 function pcard(p){
   const s=gStats(GS,p.id), st=s.st, f=(p.fotos||[])[0];
@@ -1563,21 +1573,36 @@ function vProyecto(){
     ${pDatos()}
     <div class="panel"><div class="inline" style="justify-content:space-between"><h3>Lotes</h3><span class="mini">${DL.length} lotes · ${st.disponible} disp. · ${st.reservado} res.${st.separado?` (${st.separado} sep.)`:""} · ${st.vendido} vend.</span></div>
       ${DL.length?stBar(st):`<p class="hint" style="margin:0">Aún no tiene lotes.</p>`}
-      <div class="actions"><button type="button" class="btn sec sm" data-g="goHades" data-x="${esc(DP.id)}">Modelo de negocio en HADES →</button><button type="button" class="btn sec sm" data-g="goCab" data-x="${esc(DP.id)}">Lotes, áreas y precios en DEMETER →</button></div></div>
+      <div class="actions"><button type="button" class="btn sec sm" data-g="goHades" data-x="${esc(DP.id)}">Modelo de negocio en MINERVA →</button><button type="button" class="btn sec sm" data-g="goCab" data-x="${esc(DP.id)}">Lotes, áreas y precios en DEMETER →</button></div></div>
     <div class="actions"><button type="button" class="btn sec" data-g="delProj" style="color:var(--des-ink)">Eliminar proyecto</button></div>
-    ${DELASK==="proj"?`<div class="err" style="margin-top:10px;display:grid;gap:10px"><span>¿Eliminar ${esc(DP.codigo)} · ${esc(DP.nombre)} con sus ${DL.length} lotes? Sale del catálogo y no se puede deshacer. La evaluación en MINERVA se mantiene.</span>
+    ${DELASK==="proj"?`<div class="err" style="margin-top:10px;display:grid;gap:10px"><span>¿Eliminar ${esc(DP.codigo)} · ${esc(DP.nombre)} con sus ${DL.length} lotes? Sale del catálogo y no se puede deshacer. La evaluación en HADES se mantiene.</span>
       <span class="inline"><button type="button" class="btn pri" data-g="delProjOk" style="background:var(--des-ink);color:var(--card)">Sí, eliminar</button><button type="button" class="btn sec" data-g="delNo">Cancelar</button></span></div>`:""}`+(PCI?cierreSheet():""));
 }
 function pDatos(){
   const p=DP, L=p.estado==="lanzado";
   const fld=(k,l,o={})=>`<div class="${o.full?"full":""}"><label for="gp-${k}">${l}</label>${o.area?`<textarea id="gp-${k}" data-gp="${k}">${esc(o.v??p[k]??"")}</textarea>`:`<input id="gp-${k}" data-gp="${k}" ${o.num?'data-num="1" inputmode="decimal"':""} ${o.type?`type="${o.type}"`:""} value="${esc(o.v??p[k]??"")}">`}${o.hint?`<div class="hint">${o.hint}</div>`:""}</div>`;
-  return `<div class="panel"><h3>Datos del proyecto</h3><div class="fgrid">
-    ${fld("codigo","Código")}${fld("nombre","Nombre")}${fld("ubicacion","Ubicación")}
-    ${fld("orden","Orden en el catálogo",{num:1})}${fld("documentacion","Documentación",{hint:"Ejemplo: En regla, Título independizado."})}
+  const sel=(k,l,ops,o={})=>`<div class="${o.full?"full":""}"><label for="gp-${k}">${l}</label><select id="gp-${k}" data-gp="${k}"><option value="">— Elige —</option>${ops.map(x=>`<option ${p[k]===x?"selected":""}>${x}</option>`).join("")}</select></div>`;
+  return `${briefPanel()}<div class="panel"><h3>1 · Datos generales</h3><div class="fgrid">
+    ${fld("codigo","Código")}${fld("nombre","Nombre")}${fld("ubicacion","Ubicación",{hint:"Distrito – Provincia"})}
+    ${fld("areaTotal","Área total del terreno (m²)",{num:1})}${fld("altitud","Altitud (m s. n. m.)",{num:1})}${fld("clima","Clima",{hint:"Ej.: templado, 12–22 °C, lluvias de dic. a mar."})}
+    ${fld("accesos","Accesos y distancias",{area:1,full:1,hint:"Cómo se llega y a cuántos minutos está de la ciudad, colegios, mercados…"})}
+    ${fld("servicios","Servicios",{full:1,hint:"Agua, luz, desagüe, internet: qué hay y qué se instalará."})}
+    ${fld("atractivos","Entorno y atractivos",{area:1,full:1,hint:"Vistas, ríos, nevados, lugares turísticos cercanos."})}
     ${fld("descripcion","Descripción",{area:1,full:1})}
     ${fld("caracteristicas","Características (una por línea)",{area:1,full:1,v:(p.caracteristicas||[]).join("\n")})}
     ${fld("mapsUrl","Enlace de Google Maps",{full:1,type:"url"})}
-    ${fld("desdeArea","Áreas desde (m²)",{num:1,hint:"Si lo dejas vacío se calcula con los lotes."})}${fld("desdePrecio","Precios desde",{num:1,hint:"Si lo dejas vacío se calcula con los lotes disponibles."})}
+    ${fld("orden","Orden en el catálogo",{num:1})}${fld("desdeArea","Áreas desde (m²)",{num:1,hint:"Si lo dejas vacío se calcula con los lotes."})}${fld("desdePrecio","Precios desde",{num:1,hint:"Si lo dejas vacío se calcula con los lotes disponibles."})}
+  </div></div>
+  <div class="panel"><h3>2 · Datos legales</h3><div class="fgrid">
+    ${fld("partida","N.º de partida registral")}${sel("titularidad","Situación legal",["Título inscrito e independizado","Título inscrito (matriz)","Derechos y acciones","Sucesión intestada","Posesión","Comunidad campesina","Otro"])}
+    ${fld("propietario","Propietario registral")}${fld("zonificacion","Zonificación / uso de suelo")}
+    ${fld("documentacion","Documentación (catálogo)",{full:1,hint:"Lo que verá el cliente. Ej.: En regla, título independizado."})}
+    ${fld("obsLegal","Observaciones legales (interno)",{area:1,full:1})}
+  </div></div>
+  <div class="panel"><h3>3 · Para marketing</h3><div class="fgrid">
+    ${fld("publico","Público objetivo",{full:1,hint:"Ej.: familias jóvenes de Cusco, inversionistas, extranjeros que buscan casa de campo."})}
+    ${fld("gancho","Propuesta de valor (frase)",{full:1,hint:"Ej.: Tu casa de campo a 20 minutos de Urubamba, con vista al Chicón."})}
+    ${fld("diferenciales","Diferenciales",{area:1,full:1})}${fld("competencia","Competencia cercana y sus precios",{area:1,full:1})}
   </div></div>
   <div class="panel"><h3>Fotos</h3>
     ${(p.fotos||[]).length?`<div class="fotos">${p.fotos.map((f,i)=>`<div class="foto"><img src="${thumb(f.id,400)}" alt="Foto ${i+1}" loading="lazy"><div class="ft">
@@ -1586,7 +1611,7 @@ function pDatos(){
   </div>`;
 }
 function igualHTML(p){ const L=p.estado==="lanzado", MS=gModelos(GS), igual=gIgualModelo(p,MS[p.modelo]);
-  return igual?`<p class="mini" style="margin:6px 0 0"><span class="pill fav">Igual al criterio base</span> Usa los valores Redin del modelo tal como están en HADES.</p>`
+  return igual?`<p class="mini" style="margin:6px 0 0"><span class="pill fav">Igual al criterio base</span> Usa los valores Redin del modelo tal como están en MINERVA.</p>`
     :`<p class="mini" style="margin:6px 0 0"><span class="pill att">Ajustado</span> Este proyecto tiene valores propios, distintos al criterio base${(GS.hades&&GS.hades.cambios&&GS.hades.cambios[p.modelo])?` (el criterio base cambió el ${esc(GS.hades.cambios[p.modelo])})`:""}.</p>${L?"":`<button type="button" class="btn sec sm" data-g="preset" style="margin-top:8px">Volver a los valores base del modelo</button>`}`; }
 /** Secciones del modelo de negocio de un proyecto (se editan en HADES). */
 function secModelo(p){
@@ -1626,18 +1651,18 @@ function secModelo(p){
 function vCabida(){
   head("demeter","GAIA · DEMETER","Lotes y cabida financiera");
   const ps=gProjList(GS);
-  if(!DP){ main(`<div class="empty" style="margin-top:14px">Aún no hay proyectos. Aprueba un predio en MINERVA o importa tu catálogo.</div>`); return; }
+  if(!DP){ main(`<div class="empty" style="margin-top:14px">Aún no hay proyectos. Aprueba un predio en HADES o importa tu catálogo.</div>`); return; }
   const p=DP, L=p.estado==="lanzado", dis=L?"disabled":"", pr=p.pricing||(p.pricing={}), rp=p.reparto||{}, MS=gModelos(GS), M=MS[p.modelo]||{n:p.modelo||""}, m=p.moneda||"PEN";
   p.costos=p.costos||[]; pr.bases=pr.bases||{}; pr.bolsas=pr.bolsas||{};
   const usaBase=gN(pr.restaBase)||gN(pr.pctBase), mb=pr.monedaBolsa||m;
   main(`<div class="gtools"><label for="cabSel" class="mini" style="margin:0">Proyecto</label><select id="cabSel" data-gsel="1" style="width:auto;max-width:100%">${ps.map(x=>`<option value="${esc(x.id)}" ${x.id===p.id?"selected":""}>${esc(x.codigo)} · ${esc(x.nombre)}${x.estado==="lanzado"?"":" (borrador)"}</option>`).join("")}</select><span class="grow"></span>${proyPill(p)}</div>
     ${pasos(p)}
     <div class="banner ${p.modeloOk||L?"ok":""}"><b>Modelo: ${esc(M.n)}</b> · ingreso ${esc(ingresoTxt(pr))} · bolsa ${fm(rp.comercial,2)} % · asesor ${esc(reglaTxt(p))}
-      ${!p.modeloOk&&!L?`<br><span class="mini">Aún no confirmas el modelo de este proyecto en HADES: los cálculos usan el modelo con el que nació.</span>`:""}
-      <button type="button" class="btn sec sm" data-g="goHades" data-x="${esc(p.id)}" style="margin-left:6px">Cambiar en HADES</button></div>
+      ${!p.modeloOk&&!L?`<br><span class="mini">Aún no confirmas el modelo de este proyecto en MINERVA: los cálculos usan el modelo con el que nació.</span>`:""}
+      <button type="button" class="btn sec sm" data-g="goHades" data-x="${esc(p.id)}" style="margin-left:6px">Cambiar en MINERVA</button></div>
     ${L?`<div class="banner ok"><b>Lanzado${p.lanzado?" el "+esc(p.lanzado):""}.</b> Está en el catálogo. Puedes agregar lotes o cambiar precios; la base y el reparto quedaron fijos.</div>`:""}
     <div class="panel"><div class="inline" style="justify-content:space-between"><h3>1. Lotes, áreas y precios</h3><span class="mini" id="cLotesRes"></span></div>
-      <p class="hint" style="margin:0 0 10px">Con el modelo de HADES, cada lote calcula al instante el ingreso de la empresa, la bolsa comercial y lo que queda.${usaBase?" Este modelo usa la <b>base</b> (costo o precio del propietario) de cada lote.":""}</p>
+      <p class="hint" style="margin:0 0 10px">Con el modelo de MINERVA, cada lote calcula al instante el ingreso de la empresa, la bolsa comercial y lo que queda.${usaBase?" Este modelo usa la <b>base</b> (costo o precio del propietario) de cada lote.":""}</p>
       <div class="tablebox"><table><thead><tr><th>Lote</th><th class="r">Área m²</th><th class="r">Precio (${curS(m)})</th><th class="r">${curS(m)}/m²</th>${usaBase?`<th class="r">Base</th>`:""}<th class="r">Ingreso</th><th class="r">Bolsa (${curS(mb)})</th><th class="r">Empresa</th><th>Estado</th><th></th></tr></thead><tbody>
       ${DL.map((l,i)=>{const x=gLot(p,l,GS.config);return `<tr>
         <td><input id="gl-c-${i}" data-gl="${i}" data-k="codigo" value="${esc(l.codigo)}" aria-label="Código del lote" style="min-width:64px"></td>
@@ -1946,7 +1971,7 @@ document.addEventListener("change",e=>{
 addEventListener("beforeunload",e=>{ if(dirty()){ e.preventDefault(); e.returnValue=""; } });
 
 /* ---------- Usuarios (gerentes y asesores) ---------- */
-const PERM_MODS=[["eleuthia","ELEUTHIA · Predios"],["minerva","MINERVA · Evaluación"],["hephaestus","HEPHAESTUS · Proyectos"],["demeter","DEMETER · Cabida"],["hades","HADES · Calculadora Redin"],["apollo","APOLLO · Tablero"],["operaciones","HERMES · Operaciones"],["poseidon","POSEIDON · Cobranzas"]];
+const PERM_MODS=[["eleuthia","HADES · Registro de predios"],["minerva","HADES · Evaluación de predios"],["hephaestus","HEPHAESTUS · Proyectos"],["demeter","DEMETER · Cabida"],["hades","MINERVA · Modelo y viabilidad"],["apollo","APOLLO + ELEUTHIA · Inventario y comercialización"],["operaciones","HERMES · Operaciones"],["poseidon","POSEIDON · Cobranzas"]];
 const ROL_DESC={gerente:"Entra a GAIA y usa solo los módulos que le marques. Puede validar ingresos si lo activas.",supervisor:"Ve todo en tiempo real (tablero, operaciones, cobranzas) y exporta el resumen mensual. No modifica nada ni gestiona usuarios.",
   contabilidad:"Ve el inventario y los movimientos sin modificarlos. Sube vouchers, valida ingresos y aprueba cronogramas de cuotas.",asesor:"Registra reservas, separaciones, ventas y desistimientos de sus proyectos, sube vouchers de sus clientes y ve su wallet."};
 const ROL_PILL={gerente:"info",supervisor:"fav",contabilidad:"att",asesor:"des"};
@@ -2012,7 +2037,7 @@ function vInicio(){
         <span class="val">${s.vendido}/${s.disponible+s.reservado+s.vendido}</span></div>`).join("")||`<p class="hint">Aún no hay lotes.</p>`}</div>
       <div class="legend"><span><i class="c-vend"></i>Vendidos</span><span><i class="c-res"></i>Reservados</span><span><i class="c-disp"></i>Disponibles</span></div></div>`;
     if(can("demeter","ver")||can("hephaestus","ver")) gProjList(GS).filter(p=>p.estado!=="lanzado").forEach(p=>{ const ap=(p.aprob||{}).estado, nl=gLotsOf(GS,p.id).length, v=nl?gViab({...GS},p.id):null, id=esc(p.id);
-      const x=!p.modeloOk?{s:"Define cómo se comercializa en HADES",a:`data-g="goHades" data-x="${id}"`,pill:`<span class="pill info">Modelo</span>`}
+      const x=!p.modeloOk?{s:"Define cómo se comercializa en MINERVA",a:`data-g="goHades" data-x="${id}"`,pill:`<span class="pill info">Modelo</span>`}
         :!nl?{s:"Carga lotes, áreas y precios en DEMETER",a:`data-g="goCab" data-x="${id}"`,pill:`<span class="pill info">Cabida</span>`}
         :ap==="pendiente"?{s:PERFIL.rol==="admin"?`Espera tu aprobación · ${GAIA_VIAB_TXT[v.estado].toLowerCase()}`:"Enviado a aprobación",a:`data-g="goViab" data-x="${id}"`,pill:`<span class="pill ${PERFIL.rol==="admin"?"fav":"info"}">${PERFIL.rol==="admin"?"Aprobar":"En revisión"}</span>`,top:PERFIL.rol==="admin"}
         :ap==="aprobado"?{s:"Aprobado: asigna asesores y lanza la comercialización",a:`data-g="goCom" data-x="${id}"`,pill:`<span class="pill fav">Lanzar</span>`}
@@ -2042,6 +2067,7 @@ function vInicio(){
   const st={predios:FICHAS?`${FICHAS.length} predios · ${FICHAS.filter(f=>estadoDe(f)==="Sin evaluar").length} sin evaluar`:"Captación y evaluación",
     proyectos:GS?`${Object.keys(GS.projects).length} proyectos · ${Object.keys(GS.lots).length} lotes`:"Proyectos y lotes",
     cabida:GS?`${gProjList(GS).filter(p=>p.estado==="lanzado").length} lanzados · ${gProjList(GS).filter(p=>p.estado!=="lanzado").length} en borrador`:"Cabida financiera",
+    comercial:GS?`${gProjList(GS).filter(p=>p.estado==="lanzado").length} proyecto(s) en venta · catálogo y asesores`:"Lanzamiento y asesores",
     tablero:GS&&can("apollo","ver")?`Bolsa ${vpen(gDashboard(GS,"proy").bolsa)}`:"Utilidades y comisiones", ajustes:GS?`${GS.users.length} usuarios`:"Usuarios y catálogo", cobranzas:GS&&can("poseidon","ver")?`Vencido S/ ${fm(gCobranzas(GS,{}).k.vencido)}`:"Cronogramas y pagos", operaciones:OPS?`${OPS.ops.length} movimientos · ${OPS.ops.filter(o=>o.estado==="por_validar").length} por validar`:"Reservas, ventas y vouchers", hades:GS&&GS.hades?`${Object.keys(GS.hades.modelos).length} modelos Redin`:"Criterios de ganancia"};
   const mods=NAV.filter(n=>n[0]!=="inicio"&&canView(n[0]));
   const tiles=mods.map(([k,ic,mod,l])=>`<button type="button" class="tile" data-g="nav" data-x="${k}">${icon(ic)}<span><small>${mod}</small><b>${l}</b><span class="m">${esc(st[k]||"")}</span></span></button>`).join("");
@@ -2089,7 +2115,7 @@ function openMenu(){
   $("menu").innerHTML=`<div class="sheet-bg" data-m="close"></div><div class="sheet" role="dialog" aria-label="Tu cuenta">
     <div class="who"><span class="avatar" style="display:grid;place-items:center">${esc(ini())}</span><div><b>${esc(PERFIL.nombre)}</b><span class="mini">${ROL_TXT[PERFIL.rol]||PERFIL.rol}${PERFIL.validar&&PERFIL.rol!=="contabilidad"?" · valida ingresos":""} · ${esc(PERFIL.usuario)}</span></div></div>
     <div><label>Tema</label><div class="seg full" role="group" aria-label="Tema">${[["auto","Automático"],["dark","Oscuro"],["light","Claro"]].map(([k,l])=>`<button type="button" data-m="tema" data-x="${k}" aria-pressed="${t===k}">${l}</button>`).join("")}</div></div>
-    ${canView("hades")?`<button type="button" class="item" data-m="hades">${icon("hades")}<span>HADES · Modelo Redin</span></button>`:""}
+    ${canView("hades")?`<button type="button" class="item" data-m="hades">${icon("minerva")}<span>MINERVA · Modelo Redin</span></button>`:""}
     ${PERFIL.rol==="admin"?`<button type="button" class="item" data-m="ajustes">${icon("gaia")}<span>Ajustes y usuarios</span></button>`:""}
     ${standalone()?"":`<button type="button" class="item" data-m="instalar"><span style="font-size:20px;width:30px;text-align:center">⬇</span><span>Instalar GAIA en este equipo</span></button><p class="hint" id="instTip" hidden style="margin:0"></p>`}
     <button type="button" class="item" data-m="salir" style="color:var(--des-ink)"><span style="font-size:20px;width:30px;text-align:center">⏻</span><span>Cerrar sesión</span></button></div>`;
@@ -2230,7 +2256,7 @@ async function leerEvaluacion(file, codigo){
 
 function renderEvp(){
   const R=EVP.R, reg=EVP.reg, nuevo=!EVP.codigo;
-  head("minerva","GAIA · MINERVA",nuevo?"Registrar predio desde evaluación":"Evaluación de "+EVP.codigo);
+  head("hades","GAIA · HADES",nuevo?"Registrar predio desde evaluación":"Evaluación de "+EVP.codigo);
   const aviso=[];
   if(!nuevo&&R.ficha&&fichaNum(R.ficha)!==fichaNum(EVP.codigo)) aviso.push(`El PDF dice que viene de la ficha <b>${esc(R.ficha)}</b> y lo estás subiendo a <b>${esc(EVP.codigo)}</b>. Revisa que sea el mismo predio.`);
   R.avisos.forEach(a=>aviso.push(esc(a)));
@@ -2246,7 +2272,7 @@ function renderEvp(){
     <div><label for="evpDest">Destino del predio</label><select id="evpDest">${["","TuTierra","Mi Lote","Reventa","Corretaje","Descarte"].map(d=>`<option value="${d}" ${EVP.destino===d?"selected":""}>${d||"Elige…"}</option>`).join("")}</select>
       <div class="hint">Leído del resultado: "${esc(R.titular)}". El destino decide el modelo con el que nace el proyecto.</div></div>
     <div><label>Condición</label><div style="padding:10px 0">${R.condicionado?`<span class="pill att">Condicionado</span> <span class="hint">GAIA te pedirá confirmar antes de aprobar.</span>`:`<span class="pill fav">Sin condiciones</span>`}</div></div></div></div>
-  ${nuevo?`<div class="panel"><h3>Datos del predio para ELEUTHIA</h3><p class="hint" style="margin:0 0 10px">Este predio no tiene ficha en GAIA. Revisa los datos: se registra con su código FCP y luego se guarda esta evaluación.</p><div class="fgrid">
+  ${nuevo?`<div class="panel"><h3>Datos del predio</h3><p class="hint" style="margin:0 0 10px">Este predio no tiene ficha en GAIA. Revisa los datos: se registra con su código FCP y luego se guarda esta evaluación.</p><div class="fgrid">
     ${f("pr_nombre","Propietario(s)",{full:1})}${f("or_nombre","Originador")}${f("or_tel","Teléfono del originador")}${f("distrito","Distrito")}${f("provincia","Provincia")}
     ${f("ubicacion","Ubicación",{full:1})}${f("area","Área (m²)",{num:1})}${f("partida","Partida")}${f("precio_m2","Precio esperado por m²",{num:1})}
     <div><label for="rg-moneda">Moneda</label><select id="rg-moneda" data-evr="moneda"><option ${reg.moneda!=="US$"?"selected":""}>S/</option><option ${reg.moneda==="US$"?"selected":""}>US$</option></select></div></div></div>`:""}
@@ -2275,11 +2301,11 @@ async function guardarEvp(btn){
 
 function renderEvalDoc(){
   const d=CUR, x=EV.externa||{}, fin=EV.destino_final, apro=d.evalEstado==="Aprobada";
-  head("minerva","GAIA · MINERVA",`Evaluación ${d.codigo}`); $("btnLista").hidden=false;
+  head("hades","GAIA · HADES",`Evaluación ${d.codigo}`); $("btnLista").hidden=false;
   const pill=c=>`<span class="pill ${NIVEL_PILL[c.nivel]||""}">${esc(c.cal)}</span>`, rs=x.resumen||{};
   $("main").innerHTML=`
   <div class="resbar" id="resbar"><span><span class="score">${rs.fav||0}·${rs.att||0}·${rs.des||0}</span> <span class="mini" style="color:inherit">fav. · atención · desfav.</span></span><span class="dest">Destino: ${esc(fin)}${x.condicionado?" · condicionado":""}</span></div>
-  ${apro?`<div class="banner ok"><b>Aprobada como proyecto.</b> Ya no se puede modificar.</div>`:""}
+  ${apro?`<div class="banner ok"><b>Predio aprobado.</b> Ya no se puede modificar.</div>`:""}
   <div class="panel"><h3>${esc(x.titular||"Resultado")}</h3><p style="margin:0 0 8px">${esc(x.resultado||"")}</p>
     <p class="hint" style="margin:0">${esc(x.documento||"")} · ${esc(x.fecha||"")} · evaluación subida en PDF${d.evalPdf?` · <a href="${esc(d.evalPdf)}" target="_blank" rel="noopener">Ver el PDF en Drive</a>`:""}</p></div>
   ${(x.datos||[]).length?`<div class="panel"><h3>Datos generales</h3><dl class="kv">${x.datos.map(k=>`<dt>${esc(k.k)}</dt><dd>${esc(k.v)}</dd>`).join("")}</dl></div>`:""}
@@ -2289,7 +2315,7 @@ function renderEvalDoc(){
   ${(EV.recomendaciones||[]).length?`<div class="panel"><h3>Recomendaciones</h3><ol style="margin:0;padding-left:20px;display:grid;gap:6px">${EV.recomendaciones.map(r=>`<li>${esc(r)}</li>`).join("")}</ol></div>`:""}
   ${(EV.docs||[]).length?`<div class="panel"><h3>Documentación faltante</h3><div class="clist">${EV.docs.map(k=>`<div class="citem"><div class="h"><span>${esc(k.doc)}</span><span class="pill ${k.prioridad==="Indispensable"?"des":k.prioridad==="Necesario"?"att":""}">${esc(k.prioridad)}</span></div><p class="mini">${esc(k.fuente)}</p></div>`).join("")}</div></div>`:""}
   <div class="actions">
-    ${!apro&&fin!=="Descarte"?`<button type="button" class="btn pri" id="bAprobarDoc">Aprobar como proyecto</button>`:""}
+    ${!apro&&fin!=="Descarte"?`<button type="button" class="btn pri" id="bAprobarDoc">Aprobar predio</button>`:""}
     ${!apro?evpUpload(["Reemplazar con otro PDF","sec"]):""}
     ${!apro?`<button type="button" class="btn sec" id="bBorrar" style="color:var(--des-ink)">Eliminar evaluación</button>`:""}
   </div><div id="confBorrar"></div><div id="confAprobar"></div>
@@ -2304,7 +2330,7 @@ document.addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b
   if(b.id==="evpGuardar") return guardarEvp(b);
   if(b.id==="evpCancelar"){ const c=EVP&&EVP.codigo; EVP=null; if(c) abrir(c); else renderLista(); return; }
   if(b.id==="bAprobarDoc"){
-    if(EV.externa&&EV.externa.condicionado&&!b.dataset.ok){ $("confAprobar").innerHTML=`<div class="banner" style="display:grid;gap:10px"><span>Esta evaluación está <b>condicionada</b>. ¿Aprobar igual y crear el proyecto en borrador? Las condiciones siguen pendientes.</span>
+    if(EV.externa&&EV.externa.condicionado&&!b.dataset.ok){ $("confAprobar").innerHTML=`<div class="banner" style="display:grid;gap:10px"><span>Esta evaluación está <b>condicionada</b>. ¿Aprobar igual? Las condiciones siguen pendientes.</span>
       <span class="inline"><button type="button" class="btn pri" id="bAprobarDoc" data-ok="1">Sí, aprobar</button><button type="button" class="btn sec" id="bAprobarNo">Cancelar</button></span></div>`; return; }
     return accion("aprobar",b); }
   if(b.id==="bAprobarNo"){ $("confAprobar").innerHTML=""; return; }
@@ -2327,10 +2353,10 @@ function ingresoTxt(pr){ const t=[]; pr=pr||{};
   return t.join(" + ")||"sin fórmula"; }
 
 function vHades(){
-  head("hades","GAIA · HADES",HTAB==="calc"?"Calculadora Redin":HTAB==="modelos"?"Criterios Redin":"Modelo de negocio");
+  head("minerva","GAIA · MINERVA",HTAB==="calc"?"Calculadora Redin":HTAB==="modelos"?"Criterios Redin":"Modelo de negocio");
   if(!HD) HD=clone(GS.hades);
   const MS=HD.modelos, orden=(HD.orden||[]).filter(k=>MS[k]).concat(Object.keys(MS).filter(k=>!(HD.orden||[]).includes(k)));
-  main(`<div class="gtools"><div class="seg" role="group" aria-label="Sección"><button type="button" data-g="htab" data-x="proyecto" aria-pressed="${HTAB==="proyecto"}">Por proyecto</button><button type="button" data-g="htab" data-x="modelos" aria-pressed="${HTAB==="modelos"}">Criterios base</button><button type="button" data-g="htab" data-x="calc" aria-pressed="${HTAB==="calc"}">Calculadora</button></div>
+  main(`<div class="gtools"><div class="seg" role="group" aria-label="Sección"><button type="button" data-g="htab" data-x="proyecto" aria-pressed="${HTAB==="proyecto"}">Por proyecto</button><button type="button" data-g="htab" data-x="modelos" aria-pressed="${HTAB==="modelos"}">Criterios base</button><button type="button" data-g="htab" data-x="calc" aria-pressed="${HTAB==="calc"}">Calculadora</button><button type="button" data-g="nav" data-x="viab" aria-pressed="false">Viabilidad y aprobación</button></div>
     <span class="hint">${HTAB==="proyecto"?"Define cómo se moverá cada proyecto: propio, corretaje, sobreprecio… DEMETER calcula con esto.":HTAB==="modelos"?"Los criterios Redin de cada modelo: son los valores con los que parte cada proyecto.":"Simula cuánto gana cada grupo con un lote o varios."}</span></div>
     ${HTAB==="calc"?hCalc(MS,orden):HTAB==="modelos"?hModelos(MS,orden):hProyecto()}`);
   if(!can("hades","editar")) roLock("hades");
@@ -2741,7 +2767,7 @@ function finPanel(p){
 /* ---------- Paso 4: viabilidad y aprobación ---------- */
 let VNOTA="";
 function vViab(){
-  head("demeter","GAIA · DEMETER","Viabilidad y aprobación");
+  head("minerva","GAIA · MINERVA","Viabilidad y aprobación");
   if(!DP){ main(`<div class="empty" style="margin-top:14px">Aún no hay proyectos.</div>`); return; }
   const p=DP, ps=gProjList(GS), S=SXH(), v=gViab(S,p.id), t=v.t, m=p.moneda||"PEN", a=p.aprob||{}, L=p.estado==="lanzado", admin=PERFIL.rol==="admin", F=gFinanc(p,GS);
   const kpi=(k,val,sub,cls)=>`<div class="kpi ${cls||""}"><small>${k}</small><b>${val}</b><span>${sub||""}</span></div>`;
@@ -2784,7 +2810,7 @@ function vViab(){
 function asesoresDe(){ const c=GS.config.closer||{}; const us=GS.users.filter(u=>u.rol==="asesor").map(u=>({k:u.usuario,n:u.nombre,activo:u.activo}));
   return (c.key?[{k:c.key,n:(c.name||c.key)+" (closer)",activo:true}]:[]).concat(us); }
 function vComercial(){
-  head("apollo","GAIA · APOLLO","Comercialización");
+  head("eleuthia","GAIA · ELEUTHIA","Comercialización");
   if(!DP){ main(`<div class="empty" style="margin-top:14px">Aún no hay proyectos.</div>`); return; }
   const p=DP, ps=gProjList(GS), L=p.estado==="lanzado", a=p.aprob||{}, m=p.moneda||"PEN", cfg=GS.config, sel=p.asesores||[], ed=can("apollo","editar");
   const ls=gLotsOf(GS,p.id).filter(l=>l.estado!=="bloqueado"), libres=ls.filter(l=>l.estado==="disponible"&&!l.asesor), t=gCabida(SXH(),p.id);
@@ -2812,7 +2838,7 @@ function vComercial(){
 
 /* ---------- ELEUTHIA: registrar predio dentro de GAIA ---------- */
 function vRegistro(){
-  head("eleuthia","GAIA · ELEUTHIA","Registrar predio");
+  head("hades","GAIA · HADES","Registrar predio");
   const src=`registro.html?modo=completo&embed=1&por=${encodeURIComponent(PERFIL.nombre||"")}`;
   main(`<div class="gtools" style="margin-top:14px"><button type="button" class="btn sec sm" data-g="nav" data-x="predios">← Predios</button><span class="grow"></span>
       <button type="button" class="btn sec sm" data-g="copy" data-x="${esc(new URL("registro.html?modo=invitado",location.href).href)}">Copiar enlace para invitados</button></div>
@@ -3310,9 +3336,9 @@ function alertasPanel(){
   const c=ATG.cfg, ch=ATG.chats||[], D=ATG.dest, opt=(k)=>`<select id="tg-${k}" data-atg="${k}"><option value="">— Sin grupo —</option>${ch.map(x=>`<option value="${esc(x.id)}" ${ATGC[k]===x.id?"selected":""}>${esc(x.titulo)}</option>`).join("")}${ATGC[k]&&!ch.some(x=>x.id===ATGC[k])?`<option value="${esc(ATGC[k])}" selected>Grupo ${esc(ATGC[k])}</option>`:""}</select>`;
   const grupos=`<div class="panel"><h3>Telegram · grupos de la empresa</h3>
     <ol class="hint" style="margin:0 0 12px;padding-left:18px;line-height:1.6">
-      <li>En Telegram, abre <b>@BotFather</b>, escribe <code>/newbot</code>, ponle de nombre <i>GAIA TuTierra</i> y copia el <b>token</b> que te da.</li>
+      <li>En Telegram, abre <b>@BotFather</b>, escribe <code>/newbot</code>, ponle de nombre <i>GAIA</i> y copia el <b>token</b> que te da.</li>
       <li>Crea los grupos <b>GAIA Alertas</b> (todo el equipo) y <b>GAIA Aportes</b> (gerencia y contabilidad). Si quieres, uno más: <b>GAIA Cobranzas</b>.</li>
-      <li>Agrega el bot a cada grupo y escribe "hola" en cada uno. Luego toca <b>Detectar grupos</b>.</li></ol>
+      <li>Agrega el bot a cada grupo y escribe en cada uno <code>/start@${esc((D&&D.bot)||"TuBot")}</code>. Luego toca <b>Detectar grupos y personas</b>.</li></ol>
     <div class="fgrid">
       <div class="full"><label for="tg-token">Token del bot</label><input id="tg-token" data-atg="token" value="${esc(ATGC.token)}" placeholder="${c.configurado?esc(c.token)+" (ya guardado)":"123456789:AA…"}" autocomplete="off" spellcheck="false"></div>
       <div><label for="tg-alertas">Grupo de alertas (reservas, ventas…)</label>${opt("alertas")}</div>
@@ -3401,6 +3427,110 @@ document.addEventListener("input",e=>{ const t=e.target; if(!PCI) return;
   if(t.dataset.pci){ PCI[t.dataset.pci]=t.type==="checkbox"?t.checked:t.value; if(t.dataset.pci==="forzar") keep(draw); return; }
   if(t.dataset.pcid){ const k=t.dataset.pcid; PCI.dest=PCI.dest.filter(z=>z!==k); if(t.checked) PCI.dest.push(k); }
 });
+
+/* ================= HEPHAESTUS · crear proyecto ================= */
+let NPJ=null;
+function npSheet(){
+  const MS=(GS.hades&&GS.hades.modelos)||{}, ks=Object.keys(MS), sug=(()=>{ let n=0; gProjList(GS).concat(GS.archivados||[]).forEach(p=>{ const m=String(p.codigo||"").match(/^TT(\d+)$/i); if(m) n=Math.max(n,+m[1]); }); return "TT"+String(n+1).padStart(2,"0"); })();
+  return `<div class="sheet-bg" data-g="npClose"></div><div class="sheet big" role="dialog" aria-label="Nuevo proyecto">
+    <div class="who"><div><b style="font-size:19px;font-family:var(--display)">Nuevo proyecto</b><span class="mini">Nace en borrador. Después cargas lotes, cabida y viabilidad.</span></div></div>
+    <div class="fgrid">
+      <div class="full"><label for="npN">Nombre del proyecto</label><input id="npN" data-np="nombre" value="${esc(NPJ.nombre)}" maxlength="120" placeholder="Ej.: Villa Horizonte"></div>
+      <div><label for="npC">Código</label><input id="npC" data-np="codigo" value="${esc(NPJ.codigo)}" maxlength="12" placeholder="${sug}" style="text-transform:uppercase"><div class="hint">Si lo dejas vacío: ${sug}.</div></div>
+      <div><label for="npM">Moneda</label><select id="npM" data-np="moneda"><option value="PEN" ${NPJ.moneda==="PEN"?"selected":""}>Soles (S/)</option><option value="USD" ${NPJ.moneda==="USD"?"selected":""}>Dólares (US$)</option></select></div>
+      <div class="full"><label for="npU">Ubicación</label><input id="npU" data-np="ubicacion" value="${esc(NPJ.ubicacion)}" maxlength="160" placeholder="Distrito – Provincia"></div>
+      <div class="full"><label for="npMo">Modelo de negocio (MINERVA)</label><select id="npMo" data-np="modelo">${ks.map(k=>`<option value="${esc(k)}" ${NPJ.modelo===k?"selected":""}>${esc(MS[k].n||k)}</option>`).join("")}</select><div class="hint">Se puede cambiar después en MINERVA.</div></div>
+      <div class="full"><label for="npG">Enlace de Google Maps (opcional)</label><input id="npG" data-np="mapsUrl" value="${esc(NPJ.mapsUrl)}" placeholder="https://maps.app.goo.gl/…"></div>
+    </div>
+    <div class="inline"><button type="button" class="btn pri" data-g="npSave" style="flex:1">Crear proyecto</button><button type="button" class="btn sec" data-g="npClose">Cancelar</button></div></div>`;
+}
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-g]"); if(!b||b.disabled) return; const a=b.dataset.g;
+  if(a==="npOpen"){ const ks=Object.keys((GS.hades&&GS.hades.modelos)||{}); NPJ={nombre:"",codigo:"",moneda:"PEN",ubicacion:"",modelo:ks.includes("corretaje")?"corretaje":ks[0]||"",mapsUrl:""}; if(VIEW!=="proyectos") return go("proyectos"); return keep(draw); }
+  if(a==="npClose"){ NPJ=null; return keep(draw); }
+  if(a==="npSave") return run(b,"Creando…",async()=>{ const r=await api("g_nuevoProyecto",{datos:NPJ}); NPJ=null; GS.projects[r.proyecto.id]=r.proyecto; toast(`Proyecto ${r.proyecto.codigo} creado en borrador.`); go("proyecto",r.proyecto.id); });
+});
+document.addEventListener("input",e=>{ const t=e.target; if(NPJ&&t.dataset.np) NPJ[t.dataset.np]=t.dataset.np==="codigo"?t.value.toUpperCase():t.value; });
+
+/* ================= HADES · semáforo de riesgo e informe para gerencia ================= */
+let RSK=null, RSK_COD="";
+const SEM_TXT={verde:"🟢 Verde · sin observaciones",ambar:"🟡 Ámbar · con cuidado",rojo:"🔴 Rojo · peligro"};
+const REC_TXT={correr:"Recomendado correrlo",condicionado:"Correrlo solo si se levantan las condiciones",no:"No recomendado"};
+const TEMAS_R=["Legal / titularidad","Faja marginal / ríos","Zona arqueológica","Posesionarios / invasión","Sucesión / copropiedad","Accesos","Servicios","Topografía / suelo","Zonificación","Precio / mercado","Otro"];
+function riesgoHTML(){
+  const ed=can("minerva","editar"), R=RSK, dis=ed?"":"disabled";
+  return `<div class="panel" id="riskBox" style="margin-top:14px;border-left:4px solid ${R.semaforo==="rojo"?"var(--des-ink)":R.semaforo==="ambar"?"var(--att-ink)":R.semaforo==="verde"?"var(--fav-ink)":"var(--line2)"}">
+    <div class="inline" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h3 style="margin:0">Informe de riesgo para gerencia</h3>${R.actualizado?`<span class="mini">Actualizado ${esc(R.actualizado)} · ${esc(R.por||"")}</span>`:""}</div>
+    <p class="hint" style="margin:6px 0 10px">Marca el semáforo, las alertas que encontraste y tu recomendación. Con esto sale el informe en PDF para el gerente. Tu evaluación completa en PDF se sube arriba y se guarda en Drive › Evaluación de predios.</p>
+    <div class="seg wrapseg" role="group" aria-label="Semáforo">${Object.keys(SEM_TXT).map(k=>`<button type="button" data-rk="sem" data-x="${k}" aria-pressed="${R.semaforo===k}" ${dis}>${SEM_TXT[k]}</button>`).join("")}</div>
+    <div class="fgrid" style="margin-top:10px"><div class="full"><label for="rkRec">Recomendación</label><select id="rkRec" data-rkf="recomendacion" ${dis}><option value="">— Elige —</option>${Object.keys(REC_TXT).map(k=>`<option value="${k}" ${R.recomendacion===k?"selected":""}>${REC_TXT[k]}</option>`).join("")}</select></div>
+      <div class="full"><label for="rkRes">Resumen para el gerente</label><textarea id="rkRes" data-rkf="resumen" maxlength="1500" placeholder="En dos o tres líneas: ¿conviene o no y por qué?" ${dis}>${esc(R.resumen||"")}</textarea></div></div>
+    <label style="margin-top:10px">Alertas</label>
+    <div style="display:grid;gap:8px">${R.alertas.map((a,i)=>`<div class="rkrow"><select data-rka="${i}" data-k="nivel" aria-label="Nivel" ${dis}><option value="rojo" ${a.nivel==="rojo"?"selected":""}>🔴 Peligro</option><option value="ambar" ${a.nivel==="ambar"?"selected":""}>🟡 Cuidado</option><option value="verde" ${a.nivel==="verde"?"selected":""}>🟢 Sin problema</option></select>
+        <select data-rka="${i}" data-k="tema" aria-label="Tema" ${dis}><option value="">Tema…</option>${TEMAS_R.map(t=>`<option ${a.tema===t?"selected":""}>${t}</option>`).join("")}</select>
+        <input data-rka="${i}" data-k="texto" value="${esc(a.texto)}" placeholder="Detalle: qué pasa y qué habría que hacer" aria-label="Detalle" ${dis}>${ed?`<button type="button" class="btn sec sm" data-rk="del" data-x="${i}" aria-label="Quitar alerta">✕</button>`:""}</div>`).join("")||`<p class="hint" style="margin:0">Sin alertas aún.</p>`}</div>
+    <div class="actions">${ed?`<button type="button" class="btn sec sm" data-rk="add">+ Agregar alerta</button><button type="button" class="btn pri sm" data-rk="save">Guardar</button>`:""}<button type="button" class="btn sec sm" data-rk="pdf" ${CUR&&CUR.riesgo&&CUR.riesgo.semaforo?"":"disabled"}>Descargar informe de riesgo (PDF)</button></div></div>`;
+}
+function pintarRiesgo(){
+  if(!CUR||VIEW!=="predios") return; const m=$("main"); if(!m) return;
+  if(RSK_COD!==CUR.codigo||!RSK){ RSK_COD=CUR.codigo; RSK=JSON.parse(JSON.stringify(CUR.riesgo||{semaforo:"",recomendacion:"",resumen:"",alertas:[]})); RSK.alertas=RSK.alertas||[]; }
+  const old=$("riskBox"); if(old) old.outerHTML=riesgoHTML(); else { const rb=$("resbar"); if(rb) rb.insertAdjacentHTML("afterend",riesgoHTML()); else m.insertAdjacentHTML("afterbegin",riesgoHTML()); }
+}
+{ const _rE=renderEval, _rD=renderEvalDoc;
+  renderEval=function(){ const r=_rE.apply(this,arguments); pintarRiesgo(); return r; };
+  renderEvalDoc=function(){ const r=_rD.apply(this,arguments); pintarRiesgo(); return r; }; }
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-rk]"); if(!b||b.disabled||!RSK) return; const a=b.dataset.rk;
+  if(a==="sem"){ RSK.semaforo=b.dataset.x; return pintarRiesgo(); }
+  if(a==="add"){ RSK.alertas.push({nivel:"ambar",tema:"",texto:""}); pintarRiesgo(); const ins=document.querySelectorAll('#riskBox [data-k="texto"]'); if(ins.length) ins[ins.length-1].focus(); return; }
+  if(a==="del"){ RSK.alertas.splice(+b.dataset.x,1); return pintarRiesgo(); }
+  if(a==="save") return run(b,"Guardando…",async()=>{ const r=await api("riesgo",{codigo:CUR.codigo,riesgo:RSK}); CUR.riesgo=r.riesgo; RSK=JSON.parse(JSON.stringify(r.riesgo));
+    const f=(FICHAS||[]).find(x=>x.codigo===CUR.codigo); if(f) f.semaforo=r.riesgo.semaforo; toast("Riesgo guardado. Ya puedes descargar el informe."); pintarRiesgo(); });
+  if(a==="pdf") return run(b,"Generando…",async()=>{ const r=await api("riesgoPdf",{codigo:CUR.codigo}); descargar(r.base64,r.nombre); toast("Informe descargado y guardado en Drive › Evaluación de predios."); });
+});
+document.addEventListener("input",e=>{ const t=e.target; if(!RSK) return;
+  if(t.dataset.rkf){ RSK[t.dataset.rkf]=t.value; return; }
+  if(t.dataset.rka!==undefined){ RSK.alertas[+t.dataset.rka][t.dataset.k]=t.value; }
+});
+
+/* ================= HEPHAESTUS · brief para marketing (solo con el proyecto completo) ================= */
+const BRIEF_REQ_C=[["nombre","Nombre"],["ubicacion","Ubicación"],["mapsUrl","Enlace de Google Maps"],["areaTotal","Área total del terreno"],["clima","Clima"],["accesos","Accesos y distancias"],["servicios","Servicios"],["descripcion","Descripción"],["partida","N.º de partida registral"],["titularidad","Situación legal"]];
+function faltaBrief(p){
+  const f=BRIEF_REQ_C.filter(([k])=>!String(p[k]??"").trim()).map(x=>x[1]); if(!(p.fotos||[]).length) f.push("Al menos una foto");
+  const ls=(DL&&DP&&DP.id===p.id?DL:gLotsOf(GS,p.id)).filter(l=>l.estado!=="bloqueado");
+  if(!ls.length) f.push("Lotes en la cabida (DEMETER)"); else if(ls.some(l=>!(gN(l.m2)>0)||!(gN(l.lista)>0))) f.push("Área y precio en todos los lotes");
+  if(!p.modeloOk&&p.estado!=="lanzado") f.push("Modelo de comercialización confirmado (MINERVA)");
+  return f;
+}
+function briefPanel(){
+  const f=faltaBrief(DP), tot=BRIEF_REQ_C.length+3, ok=tot-f.length, pct=Math.round(Math.max(0,ok)/tot*100);
+  return `<div class="panel" style="border-left:4px solid ${f.length?"var(--att-ink)":"var(--fav-ink)"}"><div class="inline" style="justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div><h3 style="margin:0">Brief para marketing</h3><span class="mini">${f.length?`Proyecto ${pct} % completo: el brief se habilita cuando esté al 100 %.`:"Proyecto completo: el brief está listo, con lotes y precios."}</span></div>
+      <button type="button" class="btn ${f.length?"sec":"pri"} sm" data-g="brief" ${f.length||dirty()?"disabled":""} title="${dirty()?"Guarda los cambios primero":""}">Descargar brief (PDF)</button></div>
+    <i class="kbar" style="margin-top:10px"><i style="width:${pct}%"></i></i>
+    ${f.length?`<p class="hint" style="margin:8px 0 0">Falta: ${f.map(esc).join(" · ")}.</p>`:""}</div>`;
+}
+document.addEventListener("click",e=>{ const b=e.target.closest('[data-g="brief"]'); if(!b||b.disabled||!DP) return;
+  run(b,"Armando brief…",async()=>{ const r=await api("g_briefPdf",{pid:DP.id}); descargar(r.base64,r.nombre); toast("Brief descargado y guardado en Drive › GAIA - Briefs de marketing."); }); });
+
+/* ================= ELEUTHIA · disponibilidad para asesores ================= */
+let ECPID="";
+function catalogoAsesor(){
+  head("eleuthia","GAIA · ELEUTHIA","Disponibilidad de lotes");
+  const ps=opsProyectos(); if(!ps.length){ main(`<div class="empty" style="margin-top:14px">Aún no tienes proyectos asignados en venta.</div>`); return; }
+  if(!ps.some(p=>p.id===ECPID)) ECPID=ps[0].id; const p=GS.projects[ECPID], m=p.moneda||"PEN", ls=gLotsOf(GS,ECPID).filter(l=>l.estado!=="bloqueado");
+  const st={}; ls.forEach(l=>st[l.estado]=(st[l.estado]||0)+1);
+  main(`<div class="gtools" style="margin-top:14px"><label for="ecP" class="mini" style="margin:0">Proyecto</label><select id="ecP" style="width:auto;max-width:100%">${ps.map(x=>`<option value="${esc(x.id)}" ${x.id===ECPID?"selected":""}>${esc(x.codigo)} · ${esc(x.nombre)}</option>`).join("")}</select>
+      <span class="grow"></span><span class="mini">${EST_ORD.filter(e=>st[e]).map(e=>`${st[e]} ${GAIA_ESTADO_TXT[e].toLowerCase()}${st[e]===1?"":"s"}`).join(" · ")}</span></div>
+    <div class="kpis"><div class="kpi hero"><small>Disponibles</small><b>${st.disponible||0}</b><span>de ${ls.length} lotes</span></div>
+      <div class="kpi"><small>Desde</small><b>${mon(Math.min(...ls.filter(l=>l.estado==="disponible").map(l=>gN(l.lista)).concat([Infinity]))===Infinity?0:Math.min(...ls.filter(l=>l.estado==="disponible").map(l=>gN(l.lista))),m)}</b><span>precio de lista</span></div></div>
+    <div class="catgrid">${ls.map(l=>{ const mio=l.asesor===PERFIL.usuario, libre=l.estado==="disponible";
+      return `<div class="catlote st-b-${esc(l.estado)}"><div class="inline" style="justify-content:space-between"><b>${esc(l.codigo)}</b>${estadoPill(l.estado)}</div>
+        <span class="mini">${fm(l.m2,2)} m² · ${mon(gN(l.lista)/(gN(l.m2)||1),m,0)}/m²</span><b class="pr">${mon(l.lista,m)}</b>
+        ${libre?`<button type="button" class="btn pri sm" data-g="ecReg" data-x="${esc(l.id)}">Reservar o vender</button>`:mio&&l.estado!=="vendido"?`<button type="button" class="btn sec sm" data-g="ecReg" data-x="${esc(l.id)}">Mi cliente: continuar</button>`:`<span class="mini">${mio?"Tu venta":l.estado==="vendido"?"Vendido":"Lo atiende otro asesor"}</span>`}</div>`; }).join("")}</div>`);
+}
+{ const _vc=vComercial; vComercial=function(){ if(!can("apollo","ver")) return catalogoAsesor(); return _vc.apply(this,arguments); }; }
+document.addEventListener("click",e=>{ const b=e.target.closest('[data-g="ecReg"]'); if(!b) return; const l=GS.lots[b.dataset.x]; if(!l) return;
+  OREG={...nuevoReg(),pid:l.pid,lid:l.id}; OFILES=[]; OTAB="registrar"; go("operaciones"); });
+document.addEventListener("change",e=>{ if(e.target.id==="ecP"){ ECPID=e.target.value; keep(draw); } });
 
 function medir(){ const h=document.querySelector('header.top'); if(h) document.documentElement.style.setProperty('--hh',h.offsetHeight+'px'); }
 addEventListener('resize',medir); new ResizeObserver(medir).observe(document.querySelector('header.top'));
